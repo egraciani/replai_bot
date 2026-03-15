@@ -31,7 +31,7 @@ bot.command("reset", async (ctx) => {
 
 // ── Callback: confirm business ────────────────────────────────────────────────
 bot.callbackQuery("confirm_yes", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await ctx.answerCallbackQuery().catch(() => {});
   const chatId = ctx.chat!.id;
   const state = getState(chatId);
 
@@ -49,7 +49,7 @@ bot.callbackQuery("confirm_yes", async (ctx) => {
 });
 
 bot.callbackQuery("confirm_no", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await ctx.answerCallbackQuery().catch(() => {});
   const chatId = ctx.chat!.id;
 
   setState(chatId, { step: "waiting_business" });
@@ -198,6 +198,11 @@ async function runDemo(
     { parse_mode: "Markdown", link_preview_options: { is_disabled: true } }
   );
 }
+
+// ── Error handler ─────────────────────────────────────────────────────────────
+bot.catch((err) => {
+  console.error("Bot error:", err.message);
+});
 
 // ── Start bot ─────────────────────────────────────────────────────────────────
 bot.start({
