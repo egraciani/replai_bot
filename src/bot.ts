@@ -1,11 +1,17 @@
-import "dotenv/config";
-import { Bot, InlineKeyboard } from "grammy";
+// Load .env only in local dev (Cloud Run sets K_SERVICE automatically)
+if (!process.env.K_SERVICE) {
+  const { config } = await import("dotenv");
+  config();
+}
+
+import { createServer } from "node:http";
+import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 import { findBusiness, getBusinessReviews, selectReviewsForExamples } from "./google.js";
 import { generateDemoResponse, generateInsights } from "./claude.js";
 import { getState, setState } from "./conversation.js";
 import type { PlaceResult } from "./types.js";
 
-const DEMO_URL = process.env.DEMO_URL ?? "https://replai.app";
+const DEMO_URL = process.env.DEMO_URL ?? "https://autoreplai.com";
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 
@@ -15,8 +21,8 @@ bot.command("start", async (ctx) => {
   setState(chatId, { step: "waiting_business" });
 
   await ctx.reply(
-    "👋 ¡Hola! Soy el bot de *replai*.\n\n" +
-      "Te voy a mostrar en vivo cómo respondería replai a las reseñas reales de tu negocio en Google.\n\n" +
+    "👋 ¡Hola! Soy el bot de *autoreplai*.\n\n" +
+      "Te voy a mostrar en vivo cómo respondería autoreplai a las reseñas reales de tu negocio en Google.\n\n" +
       "✍️ *¿Cuál es el nombre de tu negocio?*\n" +
       "Puedes escribir el nombre o pegar un enlace de Google Maps.",
     { parse_mode: "Markdown" }
@@ -66,7 +72,7 @@ bot.on("message:text", async (ctx) => {
   if (state.step === "idle") {
     setState(chatId, { step: "waiting_business" });
     await ctx.reply(
-      "👋 ¡Hola! Envía /start para comenzar la demo de *replai*.",
+      "👋 ¡Hola! Envía /start para comenzar la demo de *autoreplai*.",
       { parse_mode: "Markdown" }
     );
     return;
@@ -144,7 +150,7 @@ async function runDemo(
 
   await ctx.reply(
     `✅ *${business.name}* · ⭐ ${business.rating} (${business.totalReviews} reseñas)\n\n` +
-      `Aquí tienes ${exampleReviews.length} ejemplo${exampleReviews.length > 1 ? "s" : ""} de respuesta generada por replai:`,
+      `Aquí tienes ${exampleReviews.length} ejemplo${exampleReviews.length > 1 ? "s" : ""} de respuesta generada por autoreplai:`,
     { parse_mode: "Markdown" }
   );
 
@@ -166,7 +172,7 @@ async function runDemo(
       `*Reseña ${i + 1}/${exampleReviews.length}* — ${stars}\n` +
       `👤 *${review.author_name}* · ${review.relative_time_description}\n` +
       `💬 _"${review.text.slice(0, 200)}${review.text.length > 200 ? "…" : ""}"_\n\n` +
-      `📝 *Respuesta generada por replai:*\n${responses[i]}`;
+      `📝 *Respuesta generada por autoreplai:*\n${responses[i]}`;
 
     await ctx.reply(msg, { parse_mode: "Markdown" });
 
@@ -193,8 +199,8 @@ async function runDemo(
 
   await ctx.reply(
     "🎉 *¿Te imaginas esto para cada reseña, de forma automática, todos los días?*\n\n" +
-      "replai responde tus reseñas de Google con IA — en menos de 1 hora desde que llegan.\n\n" +
-      `👉 [Empieza gratis en replai.app](${DEMO_URL})`,
+      "autoreplai responde tus reseñas de Google con IA — en menos de 1 hora desde que llegan.\n\n" +
+      `👉 [Empieza gratis en autoreplai.com](${DEMO_URL})`,
     { parse_mode: "Markdown", link_preview_options: { is_disabled: true } }
   );
 }
@@ -205,6 +211,43 @@ bot.catch((err) => {
 });
 
 // ── Start bot ─────────────────────────────────────────────────────────────────
-bot.start({
-  onStart: () => console.log("🤖 replai_bot is running"),
-});
+if (process.env.K_SERVICE) {
+  // ── Cloud Run: always start HTTP server ───────────────────────────────
+  const secret = process.env.WEBHOOK_SECRET ?? "";
+  const handleWebhook = webhookCallback(bot, "http", {
+    secretToken: secret,
+    timeoutMilliseconds: 55_000,
+  });
+  const port = Number(process.env.PORT) || 8080;
+
+  const server = createServer(async (req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/webhook") {
+      await handleWebhook(req, res);
+      return;
+    }
+
+    res.writeHead(404).end();
+  });
+
+  if (process.env.WEBHOOK_URL) {
+    await bot.api.setWebhook(`${process.env.WEBHOOK_URL}/webhook`, {
+      secret_token: secret,
+    });
+  }
+
+  server.listen(port, () => {
+    console.log(`🤖 replai_bot webhook server listening on :${port}`);
+  });
+} else {
+  // ── Polling mode (local dev) ──────────────────────────────────────────
+  await bot.api.deleteWebhook();
+  bot.start({
+    onStart: () => console.log("🤖 replai_bot is running (polling)"),
+  });
+}

@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { GoogleReview } from "./types.js";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  maxRetries: 3,
+});
 
 export async function generateInsights(
   reviews: GoogleReview[],
