@@ -1,5 +1,11 @@
-import "dotenv/config";
-import { Bot, InlineKeyboard } from "grammy";
+// Load .env only in local dev (Cloud Run sets K_SERVICE automatically)
+if (!process.env.K_SERVICE) {
+  const { config } = await import("dotenv");
+  config();
+}
+
+import { createServer } from "node:http";
+import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 import { findBusiness, getBusinessReviews, selectReviewsForExamples } from "./google.js";
 import { generateDemoResponse, generateInsights } from "./claude.js";
 import { getState, setState } from "./conversation.js";
@@ -205,6 +211,40 @@ bot.catch((err) => {
 });
 
 // ── Start bot ─────────────────────────────────────────────────────────────────
-bot.start({
-  onStart: () => console.log("🤖 replai_bot is running"),
-});
+if (process.env.K_SERVICE) {
+  // ── Cloud Run: always start HTTP server ───────────────────────────────
+  const secret = process.env.WEBHOOK_SECRET ?? "";
+  const handleWebhook = webhookCallback(bot, "http", { secretToken: secret });
+  const port = Number(process.env.PORT) || 8080;
+
+  const server = createServer(async (req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/webhook") {
+      await handleWebhook(req, res);
+      return;
+    }
+
+    res.writeHead(404).end();
+  });
+
+  if (process.env.WEBHOOK_URL) {
+    await bot.api.setWebhook(`${process.env.WEBHOOK_URL}/webhook`, {
+      secret_token: secret,
+    });
+  }
+
+  server.listen(port, () => {
+    console.log(`🤖 replai_bot webhook server listening on :${port}`);
+  });
+} else {
+  // ── Polling mode (local dev) ──────────────────────────────────────────
+  await bot.api.deleteWebhook();
+  bot.start({
+    onStart: () => console.log("🤖 replai_bot is running (polling)"),
+  });
+}
