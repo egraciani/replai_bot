@@ -11,7 +11,7 @@ import { generateDemoResponse, generateInsights } from "./claude.js";
 import { getState, setState } from "./conversation.js";
 import type { PlaceResult } from "./types.js";
 
-const DEMO_URL = process.env.DEMO_URL ?? "https://replai.app";
+const DEMO_URL = process.env.DEMO_URL ?? "https://autoreplai.com";
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!);
 
@@ -21,8 +21,8 @@ bot.command("start", async (ctx) => {
   setState(chatId, { step: "waiting_business" });
 
   await ctx.reply(
-    "👋 ¡Hola! Soy el bot de *replai*.\n\n" +
-      "Te voy a mostrar en vivo cómo respondería replai a las reseñas reales de tu negocio en Google.\n\n" +
+    "👋 ¡Hola! Soy el bot de *autoreplai*.\n\n" +
+      "Te voy a mostrar en vivo cómo respondería autoreplai a las reseñas reales de tu negocio en Google.\n\n" +
       "✍️ *¿Cuál es el nombre de tu negocio?*\n" +
       "Puedes escribir el nombre o pegar un enlace de Google Maps.",
     { parse_mode: "Markdown" }
@@ -72,7 +72,7 @@ bot.on("message:text", async (ctx) => {
   if (state.step === "idle") {
     setState(chatId, { step: "waiting_business" });
     await ctx.reply(
-      "👋 ¡Hola! Envía /start para comenzar la demo de *replai*.",
+      "👋 ¡Hola! Envía /start para comenzar la demo de *autoreplai*.",
       { parse_mode: "Markdown" }
     );
     return;
@@ -150,7 +150,7 @@ async function runDemo(
 
   await ctx.reply(
     `✅ *${business.name}* · ⭐ ${business.rating} (${business.totalReviews} reseñas)\n\n` +
-      `Aquí tienes ${exampleReviews.length} ejemplo${exampleReviews.length > 1 ? "s" : ""} de respuesta generada por replai:`,
+      `Aquí tienes ${exampleReviews.length} ejemplo${exampleReviews.length > 1 ? "s" : ""} de respuesta generada por autoreplai:`,
     { parse_mode: "Markdown" }
   );
 
@@ -172,7 +172,7 @@ async function runDemo(
       `*Reseña ${i + 1}/${exampleReviews.length}* — ${stars}\n` +
       `👤 *${review.author_name}* · ${review.relative_time_description}\n` +
       `💬 _"${review.text.slice(0, 200)}${review.text.length > 200 ? "…" : ""}"_\n\n` +
-      `📝 *Respuesta generada por replai:*\n${responses[i]}`;
+      `📝 *Respuesta generada por autoreplai:*\n${responses[i]}`;
 
     await ctx.reply(msg, { parse_mode: "Markdown" });
 
@@ -199,8 +199,8 @@ async function runDemo(
 
   await ctx.reply(
     "🎉 *¿Te imaginas esto para cada reseña, de forma automática, todos los días?*\n\n" +
-      "replai responde tus reseñas de Google con IA — en menos de 1 hora desde que llegan.\n\n" +
-      `👉 [Empieza gratis en replai.app](${DEMO_URL})`,
+      "autoreplai responde tus reseñas de Google con IA — en menos de 1 hora desde que llegan.\n\n" +
+      `👉 [Empieza gratis en autoreplai.com](${DEMO_URL})`,
     { parse_mode: "Markdown", link_preview_options: { is_disabled: true } }
   );
 }
@@ -214,7 +214,10 @@ bot.catch((err) => {
 if (process.env.K_SERVICE) {
   // ── Cloud Run: always start HTTP server ───────────────────────────────
   const secret = process.env.WEBHOOK_SECRET ?? "";
-  const handleWebhook = webhookCallback(bot, "http", { secretToken: secret });
+  const handleWebhook = webhookCallback(bot, "http", {
+    secretToken: secret,
+    timeoutMilliseconds: 55_000,
+  });
   const port = Number(process.env.PORT) || 8080;
 
   const server = createServer(async (req, res) => {
