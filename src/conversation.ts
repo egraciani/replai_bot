@@ -5,7 +5,8 @@ export type ConversationState =
   | { step: "waiting_business" }
   | { step: "confirming"; candidate: PlaceResult }
   | { step: "generating"; placeId: string }
-  | { step: "done" };
+  | { step: "done" }
+  | { step: "editing"; responseId: string };
 
 const states = new Map<number, ConversationState>();
 

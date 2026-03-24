@@ -20,3 +20,43 @@ export interface PlaceResult {
   address: string;
   rating: number;
 }
+
+// Database row types
+
+export interface DbBusiness {
+  id: string;
+  user_id: string;
+  name: string;
+  google_place_id: string | null;
+  google_location_id: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  monitoring_status: string;
+  business_type: string | null;
+}
+
+export interface DbReview {
+  id: string;
+  business_id: string;
+  author_name: string;
+  rating: number;
+  review_text: string;
+  google_review_id: string | null;
+  created_at: string;
+  responses?: DbResponse[];
+}
+
+export interface DbResponse {
+  id: string;
+  review_id: string;
+  generated_text: string;
+  final_text: string | null;
+  status: "pending" | "approved" | "edited" | "rejected";
+}
+
+export interface GenerateResult {
+  text: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+}

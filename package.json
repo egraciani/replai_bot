@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "tsx src/bot.ts",
     "build": "tsc",
-    "start": "node dist/bot.js"
+    "start": "node dist/bot.js",
+    "webhook": "bash scripts/set-webhook.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@supabase/supabase-js": "^2.99.3",
     "dotenv": "^16.4.7",
     "grammy": "^1.34.0",
-    "typescript": "^5.7.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
