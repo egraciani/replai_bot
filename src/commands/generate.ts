@@ -56,7 +56,7 @@ async function handleGenerate(ctx: Context, reviewId: string) {
   const { data: review, error } = await supabase
     .from("reviews")
     .select(
-      "id, author_name, rating, review_text, businesses(name, location_name, business_type)"
+      "id, author_name, rating, review_text, businesses(name, location_name)"
     )
     .eq("id", reviewId)
     .single();
@@ -68,7 +68,6 @@ async function handleGenerate(ctx: Context, reviewId: string) {
 
   const biz = (review as any).businesses;
   const businessName = biz?.location_name || biz?.name || "Negocio";
-  const businessType = biz?.business_type || "negocio";
 
   await ctx.reply("⏳ Generando respuesta...");
 
@@ -77,8 +76,7 @@ async function handleGenerate(ctx: Context, reviewId: string) {
       review.review_text || "",
       review.author_name,
       review.rating,
-      businessName,
-      businessType
+      businessName
     );
 
     // Save to DB (increment_responses_used trigger fires on insert)

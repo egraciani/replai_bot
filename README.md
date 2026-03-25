@@ -2,17 +2,24 @@
 
 Responde las reseñas de Google de tu negocio con IA, directamente desde Telegram.
 
+## Cómo funciona
+
+1. **Web**: el usuario se registra, conecta Google Business y vincula su Telegram
+2. **Bot**: recibe notificaciones de nuevas reseñas, genera respuesta con IA, el usuario aprueba/edita desde Telegram y se publica en Google
+
+No hay dashboard web. Todo se gestiona desde Telegram.
+
 ## Arquitectura
 
 ```
 ┌──────────────────────────┐     ┌──────────────────────────┐
 │    Telegram Bot (Grammy)  │     │   Web App (Next.js 15)   │
-│    Cloud Run (webhook)    │     │   localhost:3000 (dev)    │
-│                           │     │                           │
-│  /demo   → demo gratis   │     │  /register → Google OAuth │
-│  /vincular → link cuenta  │     │  /bienvenida → onboarding │
-│  /resenas → ver reviews   │     │  /api/google-business/*   │
-│  /plan   → ver uso        │     │  /api/telegram/link-code  │
+│    Cloud Run (webhook)    │     │                           │
+│                           │     │  /register → Google OAuth │
+│  /demo   → demo gratis   │     │  /bienvenida → onboarding │
+│  /vincular → link cuenta  │     │  /api/google-business/*   │
+│  /resenas → ver reviews   │     │  /api/telegram/link-code  │
+│  /plan   → ver uso        │     │                           │
 └────────────┬─────────────┘     └────────────┬─────────────┘
              │                                 │
              └──────────┬──────────────────────┘
@@ -21,7 +28,6 @@ Responde las reseñas de Google de tu negocio con IA, directamente desde Telegra
               │     Supabase      │
               │  PostgreSQL + RLS │
               │  Auth (Google)    │
-              │  Realtime         │
               └───────────────────┘
 ```
 
@@ -63,7 +69,8 @@ web/                              # Web App (Next.js 15 + React 19)
 supabase/migrations/              # Esquema de base de datos
 ├── 001_initial_schema.sql        # Tablas core, enums, triggers, RLS, seed
 ├── 20260321_google_business.sql  # google_tokens + columnas en businesses
-└── 20260322_telegram_links.sql   # telegram_links + link_codes
+├── 20260322_telegram_links.sql   # telegram_links + link_codes
+└── 20260325_cleanup_mvp.sql      # Limpieza: drop fetch_logs, columnas y funciones sin uso
 
 scripts/
 └── set-webhook.sh                # Restaura webhook tras dev local
@@ -83,11 +90,10 @@ scripts/
 | `telegram_links` | Mapeo telegram_user_id ↔ supabase user_id |
 | `link_codes` | Códigos temporales de vinculación (TTL 10 min) |
 
-### Funciones SQL
+### Funciones SQL activas
 
 - `handle_new_user()` — trigger: crea profile + subscription free al registrarse
 - `can_generate_response(user_id)` — verifica quota antes de generar
-- `can_add_business(user_id)` — verifica límite de negocios del plan
 - `increment_responses_used()` — trigger: incrementa contador al crear response
 
 ## Setup local
@@ -141,5 +147,16 @@ npm run dev
 
 - **Bot**: [Grammy](https://grammy.dev) + TypeScript + [Anthropic Claude](https://docs.anthropic.com) + Google Places API
 - **Web**: Next.js 15 (App Router) + React 19 + Tailwind CSS v4 + Supabase Auth
-- **DB**: Supabase (PostgreSQL + RLS + Realtime)
+- **DB**: Supabase (PostgreSQL + RLS)
 - **Infra**: Docker + Google Cloud Run
+
+## Roadmap
+
+### P1: Polling de reseñas (dentro del bot)
+`setInterval` en el proceso del bot que recorre businesses activos, llama a Google Business API, inserta nuevas reseñas y notifica al usuario por Telegram.
+
+### P2: Publicar respuestas en Google
+Cuando el usuario aprueba, llamar a Google Business API para publicar la respuesta y marcar `published_at`.
+
+### P3: Refresh automático de tokens de Google
+Renovar `access_token` usando `refresh_token` cuando esté próximo a expirar.

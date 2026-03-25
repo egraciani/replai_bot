@@ -31,8 +31,6 @@ export interface DbBusiness {
   google_location_id: string | null;
   location_name: string | null;
   location_address: string | null;
-  monitoring_status: string;
-  business_type: string | null;
 }
 
 export interface DbReview {
