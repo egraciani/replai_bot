@@ -72,7 +72,7 @@ const faqs = [
   {
     question: "¿Es gratis?",
     answer:
-      "Sí, el plan gratuito incluye 1 negocio y 50 respuestas al mes. Para más negocios o respuestas ilimitadas, tenemos planes Pro y Enterprise.",
+      "Sí, puedes empezar gratis con 1 negocio y 50 respuestas al mes. Sin tarjeta de crédito.",
   },
   {
     question: "¿Puedo editar las respuestas antes de publicarlas?",
@@ -89,12 +89,6 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="text-lg font-bold text-white">autoreplai</Link>
           <div className="flex items-center gap-4">
-            <Link
-              href="/precios"
-              className="text-sm text-white/70 transition hover:text-white"
-            >
-              Precios
-            </Link>
             <a
               href={DEMO_LINK}
               target="_blank"
@@ -292,9 +286,6 @@ export default function Home() {
             autoreplai
           </Link>
           <div className="flex gap-6 text-sm text-gray-400">
-            <Link href="/precios" className="transition hover:text-gray-600">
-              Precios
-            </Link>
             <Link href="/register" className="transition hover:text-gray-600">
               Crear cuenta
             </Link>
