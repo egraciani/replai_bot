@@ -1,7 +1,14 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 const DEMO_LINK = "https://t.me/autoreplai_bot";
 
+// Pricing page temporarily hidden — redirect to home
+export default function PreciosPage() {
+  redirect("/");
+}
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const plans = [
   {
     name: "Free",
@@ -53,7 +60,7 @@ const plans = [
   },
 ];
 
-export default function PreciosPage() {
+function _PreciosPage() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
