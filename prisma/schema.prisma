@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String?           @unique
+  telegramChatId   String?           @unique @map("telegram_chat_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  businesses       Business[]
+  oauthToken       OAuthToken?
+  onboardingTokens OnboardingToken[]
+
+  @@map("users")
+}
+
+model Business {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  gmbAccountId     String?   @map("gmb_account_id")
+  gmbLocationId    String?   @map("gmb_location_id")
+  placeId          String?   @map("place_id")
+  name             String
+  timezone         String    @default("Europe/Madrid")
+  summaryTime      String    @default("09:00") @map("summary_time")
+  autopilotEnabled Boolean   @default(false) @map("autopilot_enabled")
+  lastCheckedAt    DateTime? @map("last_checked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user             User      @relation(fields: [userId], references: [id])
+  persona          Persona?
+  replyLogs        ReplyLog[]
+
+  @@map("businesses")
+}
+
+model Persona {
+  id                 String   @id @default(uuid())
+  businessId         String   @unique @map("business_id")
+  tone               String   @default("warm")
+  goodInstructions   String   @map("good_instructions")
+  mediumInstructions String   @map("medium_instructions")
+  badInstructions    String   @map("bad_instructions")
+  language           String   @default("es")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  business           Business @relation(fields: [businessId], references: [id])
+
+  @@map("personas")
+}
+
+model OAuthToken {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("oauth_tokens")
+}
+
+model OnboardingToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@map("onboarding_tokens")
+}
+
+model ReplyLog {
+  id             String      @id @default(uuid())
+  businessId     String      @map("business_id")
+  reviewId       String      @unique @map("review_id")
+  reviewText     String      @map("review_text")
+  reviewRating   Int         @map("review_rating")
+  reviewLanguage String      @map("review_language")
+  generatedReply String      @map("generated_reply")
+  status         ReplyStatus @default(PENDING)
+  postedAt       DateTime?   @map("posted_at")
+  error          String?
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  business       Business    @relation(fields: [businessId], references: [id])
+
+  @@map("reply_logs")
+}
+
+enum ReplyStatus {
+  PENDING
+  POSTED
+  FAILED
+}
