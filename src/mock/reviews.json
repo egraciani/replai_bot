@@ -1,0 +1,315 @@
+{
+  "testBusiness": {
+    "name": "accounts/123456789/locations/987654321",
+    "locationName": "Restaurante Casa Buenaventura",
+    "accountId": "123456789",
+    "locationId": "987654321",
+    "averageRating": 4.2,
+    "totalReviewCount": 312
+  },
+  "reviews": [
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev001",
+      "reviewId": "rev001",
+      "reviewer": { "displayName": "Carlos Mendoza", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Absolutamente increíble. Llevamos años viniendo a Casa Buenaventura y cada vez superan las expectativas. El chuletón estaba en su punto perfecto, el servicio atento sin ser invasivo y el ambiente muy acogedor. El sommelier nos recomendó un vino excelente que maridó perfecto. Sin duda el mejor restaurante del barrio. ¡Volveremos pronto!",
+      "createTime": "2026-03-20T19:45:00Z",
+      "updateTime": "2026-03-20T19:45:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev002",
+      "reviewId": "rev002",
+      "reviewer": { "displayName": "Ana Lucía Fernández", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "La mejor paella que he probado en Madrid. Sabor auténtico, ingredientes frescos y una ración generosa. El personal muy amable, especialmente Javier que nos atendió toda la noche. Precio muy razonable para la calidad. Ya lo he recomendado a mis amigos.",
+      "createTime": "2026-03-18T13:20:00Z",
+      "updateTime": "2026-03-18T13:20:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev003",
+      "reviewId": "rev003",
+      "reviewer": { "displayName": "James Mitchell", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Wonderful experience! We came as tourists and this was by far the highlight of our trip to Madrid. The staff spoke great English and were incredibly helpful in explaining the menu. The suckling pig was absolutely divine. Highly recommend to anyone visiting the city.",
+      "createTime": "2026-03-17T21:10:00Z",
+      "updateTime": "2026-03-17T21:10:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev004",
+      "reviewId": "rev004",
+      "reviewer": { "displayName": "Sophie Moreau", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Excellent restaurant! La cuisine est authentique et délicieuse. Le service était rapide et très aimable. Je recommande vivement le gaspacho et le cochon de lait. Une très belle découverte lors de notre séjour à Madrid.",
+      "createTime": "2026-03-15T20:30:00Z",
+      "updateTime": "2026-03-15T20:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev005",
+      "reviewId": "rev005",
+      "reviewer": { "displayName": "Martina Russo", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Ottimo ristorante! Cibo buonissimo e personale gentilissimo. Il cochinillo era fantastico. Prezzi ragionevoli per la qualità. Lo consiglio assolutamente a chiunque visiti Madrid.",
+      "createTime": "2026-03-14T19:00:00Z",
+      "updateTime": "2026-03-14T19:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev006",
+      "reviewId": "rev006",
+      "reviewer": { "displayName": "Roberto Iglesias", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "¡Genial!",
+      "createTime": "2026-03-13T22:00:00Z",
+      "updateTime": "2026-03-13T22:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev007",
+      "reviewId": "rev007",
+      "reviewer": { "displayName": "Laura Vega", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "👍👍👍",
+      "createTime": "2026-03-12T20:15:00Z",
+      "updateTime": "2026-03-12T20:15:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev008",
+      "reviewId": "rev008",
+      "reviewer": { "displayName": "David Chen", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Best restaurant in Madrid no doubt. Food was amazing and the atmosphere is perfect for a romantic dinner. Will definitely be back on our next visit to Spain.",
+      "createTime": "2026-03-11T21:40:00Z",
+      "updateTime": "2026-03-11T21:40:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev009",
+      "reviewId": "rev009",
+      "reviewer": { "displayName": "Isabel Romero", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Muy buena experiencia en general. La comida estaba riquísima, sobre todo el cocido madrileño. El único pero es que tardaron bastante en traernos la carta, casi 15 minutos esperando. Una vez que nos atendieron todo fue perfecto. Volveré.",
+      "createTime": "2026-03-19T14:00:00Z",
+      "updateTime": "2026-03-19T14:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev010",
+      "reviewId": "rev010",
+      "reviewer": { "displayName": "Miguel Ángel Torres", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Buena comida y buen servicio. Las tapas están muy ricas. El precio es un poco elevado para lo que es, pero la calidad lo justifica. El local está un poco anticuado en decoración pero el ambiente es agradable. Lo recomendaría.",
+      "createTime": "2026-03-16T13:30:00Z",
+      "updateTime": "2026-03-16T13:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev011",
+      "reviewId": "rev011",
+      "reviewer": { "displayName": "Emma Thompson", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Really enjoyed our meal here. The food was excellent — especially the octopus. Service was friendly but a bit slow at times. The wine list is impressive. Would come back for a special occasion.",
+      "createTime": "2026-03-10T20:00:00Z",
+      "updateTime": "2026-03-10T20:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev012",
+      "reviewId": "rev012",
+      "reviewer": { "displayName": "Patricia Sánchez", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Bien en general. El steak estaba bien cocinado aunque pedí el punto y llegó un poco más hecho de lo que quería. El postre, la tarta de queso, estaba espectacular. El servicio muy correcto. Buena relación calidad-precio.",
+      "createTime": "2026-03-09T21:15:00Z",
+      "updateTime": "2026-03-09T21:15:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev013",
+      "reviewId": "rev013",
+      "reviewer": { "displayName": "Klaus Hoffmann", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Sehr gutes Restaurant in Madrid. Das Essen war ausgezeichnet und der Service freundlich. Wir haben das Ferkel bestellt und es war fantastisch. Etwas teuer, aber für besondere Anlässe sehr zu empfehlen.",
+      "createTime": "2026-03-08T19:45:00Z",
+      "updateTime": "2026-03-08T19:45:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev014",
+      "reviewId": "rev014",
+      "reviewer": { "displayName": "Carmen López", "isAnonymous": false },
+      "starRating": "THREE",
+      "comment": "La comida estaba bien pero no fue nada del otro mundo. He estado en sitios similares con mejor relación calidad-precio. El camarero que nos atendió, creo que se llamaba Marcos, estaba un poco seco y poco atento. La espera para los postres fue excesiva, más de 20 minutos. No creo que repita.",
+      "createTime": "2026-03-21T20:00:00Z",
+      "updateTime": "2026-03-21T20:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev015",
+      "reviewId": "rev015",
+      "reviewer": { "displayName": "Francisco Martín", "isAnonymous": false },
+      "starRating": "THREE",
+      "comment": "Regular. La carne estaba en su punto pero las patatas fritas llegaron frías. El servicio tardó mucho en tomarnos nota. El local estaba lleno así que se entiende, pero a ese precio esperas más. Sin pena ni gloria.",
+      "createTime": "2026-03-07T13:45:00Z",
+      "updateTime": "2026-03-07T13:45:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev016",
+      "reviewId": "rev016",
+      "reviewer": { "displayName": "Yuki Tanaka", "isAnonymous": false },
+      "starRating": "THREE",
+      "comment": "Average experience. The food was decent but nothing special. I expected more given the price point and the reviews. The waiter was nice but seemed overwhelmed. Would not rush back but might try again on a quieter night.",
+      "createTime": "2026-03-06T20:30:00Z",
+      "updateTime": "2026-03-06T20:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev017",
+      "reviewId": "rev017",
+      "reviewer": { "displayName": "Alejandro Ruiz", "isAnonymous": false },
+      "starRating": "THREE",
+      "comment": "Ni fu ni fa. La paella no era mala pero tampoco era auténtica, demasiado caldosa. Los precios están subiendo sin que la calidad suba a la par. Llevan años así y me da la sensación de que viven de la reputación antigua.",
+      "createTime": "2026-03-05T14:00:00Z",
+      "updateTime": "2026-03-05T14:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev018",
+      "reviewId": "rev018",
+      "reviewer": { "displayName": "Elena Morales", "isAnonymous": false },
+      "starRating": "TWO",
+      "comment": "Muy decepcionante. Reservamos para un cumpleaños y nos cambiaron de mesa dos veces sin explicación. La carne llegó fría y cuando lo dijimos el camarero fue bastante borde. No nos ofrecieron ninguna compensación. Por ese precio esperas un trato mucho mejor. No volveré.",
+      "createTime": "2026-03-22T21:00:00Z",
+      "updateTime": "2026-03-22T21:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev019",
+      "reviewId": "rev019",
+      "reviewer": { "displayName": "Marco Bianchi", "isAnonymous": false },
+      "starRating": "TWO",
+      "comment": "Pésima experiencia. Esperamos 45 minutos para sentarnos teniendo reserva. Cuando reclamamos, la encargada Rosa fue muy poco profesional y nos trató mal. La comida cuando llegó estaba correcta pero el mal sabor de boca por el trato fue irrecuperable. Lamentable.",
+      "createTime": "2026-03-04T20:15:00Z",
+      "updateTime": "2026-03-04T20:15:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev020",
+      "reviewId": "rev020",
+      "reviewer": { "displayName": "Sarah O'Brien", "isAnonymous": false },
+      "starRating": "TWO",
+      "comment": "Disappointing. We had a reservation for our anniversary dinner and waited 30 minutes past our reservation time. No apology, no explanation. When we finally sat down the food was just okay. Not worth the price at all. Madrid has much better options.",
+      "createTime": "2026-03-03T21:30:00Z",
+      "updateTime": "2026-03-03T21:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev021",
+      "reviewId": "rev021",
+      "reviewer": { "displayName": "Tomás Herrera", "isAnonymous": false },
+      "starRating": "ONE",
+      "comment": "Fraude total. Nos cobraron en la cuenta platos que no pedimos. Cuando reclamé, el encargado me dijo que era un error pero tardó 20 minutos en solucionarlo y sin disculparse. Además, el baño estaba en condiciones lamentables. No entiendo cómo tienen tan buena nota en Google. Voy a reportarlo a consumo.",
+      "createTime": "2026-03-23T22:00:00Z",
+      "updateTime": "2026-03-23T22:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev022",
+      "reviewId": "rev022",
+      "reviewer": { "displayName": "Natalia Kovács", "isAnonymous": false },
+      "starRating": "ONE",
+      "comment": "Terrible. La comida llegó fría, el servicio fue pésimo y cuando pedí hablar con el gerente me dijeron que no estaba. Me cobraron el precio completo de un plato que ni siquiera pude comer. Nunca más.",
+      "createTime": "2026-03-02T20:00:00Z",
+      "updateTime": "2026-03-02T20:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev023",
+      "reviewId": "rev023",
+      "reviewer": { "displayName": "John Williams", "isAnonymous": false },
+      "starRating": "ONE",
+      "comment": "Awful. Found a hair in my food and the waiter's response was dismissive. We left without eating. Will be leaving a formal complaint. Do not recommend.",
+      "createTime": "2026-03-01T19:30:00Z",
+      "updateTime": "2026-03-01T19:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev024",
+      "reviewId": "rev024",
+      "reviewer": { "displayName": "Paula Jiménez", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "10/10",
+      "createTime": "2026-03-21T12:00:00Z",
+      "updateTime": "2026-03-21T12:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev025",
+      "reviewId": "rev025",
+      "reviewer": { "displayName": "Anónimo", "isAnonymous": true },
+      "starRating": "THREE",
+      "comment": "Bien.",
+      "createTime": "2026-03-20T15:00:00Z",
+      "updateTime": "2026-03-20T15:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev026",
+      "reviewId": "rev026",
+      "reviewer": { "displayName": "Beatriz Castillo", "isAnonymous": false },
+      "starRating": "FOUR",
+      "comment": "Buenísima la carne. Pedimos el chuletón para dos y estaba en su punto, muy sabroso. El servicio fue atento aunque al principio tardaron en tomarnos la comanda. La decoración es un poco antigua pero el sitio tiene encanto. Los precios acordes con la calidad.",
+      "createTime": "2026-03-19T21:30:00Z",
+      "updateTime": "2026-03-19T21:30:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev027",
+      "reviewId": "rev027",
+      "reviewer": { "displayName": "Iñigo Arteaga", "isAnonymous": false },
+      "starRating": "TWO",
+      "comment": "Bajón tremendo de calidad. Antes era mi restaurante favorito del barrio, llevaba 5 años viniendo. Pero desde el cambio de cocinero la cosa ha cambiado mucho. Los precios han subido y la calidad ha bajado. Un poco de respeto a los clientes de siempre.",
+      "createTime": "2026-03-18T20:00:00Z",
+      "updateTime": "2026-03-18T20:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev028",
+      "reviewId": "rev028",
+      "reviewer": { "displayName": "Valentina Cruz", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "¡Espectacular! Vinimos a celebrar nuestra boda y el equipo lo preparó todo perfecto. El menú degustación fue una experiencia única. Cada plato mejor que el anterior. El maître fue muy profesional y atento durante toda la noche. El mejor recuerdo de nuestra boda.",
+      "createTime": "2026-03-16T23:00:00Z",
+      "updateTime": "2026-03-16T23:00:00Z",
+      "reviewReply": null
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev029",
+      "reviewId": "rev029",
+      "reviewer": { "displayName": "rev029-already-replied", "isAnonymous": false },
+      "starRating": "FIVE",
+      "comment": "Muy buen restaurante, lo recomiendo.",
+      "createTime": "2026-02-28T20:00:00Z",
+      "updateTime": "2026-02-28T20:00:00Z",
+      "reviewReply": {
+        "comment": "¡Muchas gracias por su visita! Es un placer tenerle como cliente.",
+        "updateTime": "2026-03-01T09:00:00Z"
+      }
+    },
+    {
+      "name": "accounts/123456789/locations/987654321/reviews/rev030",
+      "reviewId": "rev030",
+      "reviewer": { "displayName": "Hans Müller", "isAnonymous": false },
+      "starRating": "ONE",
+      "comment": "Katastrophal. Das Essen war kalt, der Service unfreundlich und die Rechnung war falsch. Als ich reklamierte, wurde ich vom Manager ignoriert. Das ist inakzeptabel für ein Restaurant dieser Preisklasse. Ich werde eine offizielle Beschwerde einreichen.",
+      "createTime": "2026-02-27T21:00:00Z",
+      "updateTime": "2026-02-27T21:00:00Z",
+      "reviewReply": null
+    }
+  ]
+}
