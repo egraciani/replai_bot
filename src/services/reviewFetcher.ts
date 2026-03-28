@@ -1,5 +1,5 @@
 import type { Business } from "@prisma/client";
-import mockData from "../mock/reviews.json";
+import mockData from "../mock/reviews.json" with { type: "json" };
 
 export interface GmbReview {
   reviewId: string;
