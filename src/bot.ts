@@ -31,12 +31,15 @@ bot.command("start", async (ctx) => {
   // Autopilot onboarding deep link: /start onboard_<token>
   if (param?.startsWith("onboard_")) {
     const token = param.slice("onboard_".length);
+    console.log(`[onboard] token=${token} chatId=${ctx.chat.id}`);
 
-    const { data: record } = await supabase
+    const { data: record, error: tokenError } = await supabase
       .from("onboarding_tokens")
       .select("*")
       .eq("token", token)
       .single();
+
+    console.log(`[onboard] record=${JSON.stringify(record)} error=${JSON.stringify(tokenError)}`);
 
     if (!record) {
       await ctx.reply("❌ Este enlace no es válido. Vuelve a replai.app para obtener uno nuevo.");
@@ -54,23 +57,26 @@ bot.command("start", async (ctx) => {
       .eq("token", token);
 
     // Link Telegram chat to Supabase user
-    await supabase.from("telegram_links").upsert(
+    const { error: linkError } = await supabase.from("telegram_links").upsert(
       { user_id: record.user_id, telegram_user_id: Number(ctx.chat.id) },
       { onConflict: "user_id" }
     );
+    if (linkError) console.log(`[onboard] telegram_links error: ${JSON.stringify(linkError)}`);
 
     // Upsert the business (may already exist if user connected GMB on web)
-    const { data: business } = await supabase
+    const { data: business, error: bizError } = await supabase
       .from("businesses")
       .select("id")
       .eq("user_id", record.user_id)
       .maybeSingle();
 
+    console.log(`[onboard] business=${JSON.stringify(business)} error=${JSON.stringify(bizError)}`);
+
     let businessId: string;
     if (business) {
       businessId = business.id;
     } else {
-      const { data: newBusiness } = await supabase
+      const { data: newBusiness, error: insertError } = await supabase
         .from("businesses")
         .insert({
           user_id: record.user_id,
@@ -82,6 +88,8 @@ bot.command("start", async (ctx) => {
         .select("id")
         .single();
 
+      console.log(`[onboard] newBusiness=${JSON.stringify(newBusiness)} error=${JSON.stringify(insertError)}`);
+
       if (!newBusiness) {
         await ctx.reply("❌ No pude crear tu negocio. Por favor, contacta con soporte.");
         return;
@@ -89,6 +97,7 @@ bot.command("start", async (ctx) => {
       businessId = newBusiness.id;
     }
 
+    console.log(`[onboard] calling startOnboarding chatId=${ctx.chat.id} businessId=${businessId}`);
     await startOnboarding(String(ctx.chat.id), businessId);
     return;
   }
