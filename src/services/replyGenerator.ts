@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Persona } from "@prisma/client";
 import type { GmbReview } from "./reviewFetcher.js";
 import { starToInt } from "./reviewFetcher.js";
+
+interface Persona {
+  tone: string;
+  goodInstructions: string;
+  mediumInstructions: string;
+  badInstructions: string;
+  language: string;
+}
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
