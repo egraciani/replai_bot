@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const DEMO_LINK = "https://t.me/autoreplai_bot";
+const DEMO_LINK = "https://t.me/replai_hola_bot";
 
 const features = [
   {
