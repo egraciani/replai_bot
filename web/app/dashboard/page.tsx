@@ -29,7 +29,7 @@ export default async function DashboardPage() {
 
   // Delete stale unused tokens and insert fresh one
   await admin.from("onboarding_tokens").delete().eq("user_id", user.id).is("used_at", null);
-  await admin.from("onboarding_tokens").insert({
+  const { error: insertError } = await admin.from("onboarding_tokens").insert({
     user_id: user.id,
     email: user.email ?? "",
     token,
@@ -38,6 +38,7 @@ export default async function DashboardPage() {
     business_name: businessName,
     expires_at: expiresAt,
   });
+  if (insertError) console.error("[dashboard] onboarding_tokens insert error:", insertError);
 
   const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "autoreplai_bot";
   const deepLink = `https://t.me/${botUsername}?start=onboard_${token}`;
