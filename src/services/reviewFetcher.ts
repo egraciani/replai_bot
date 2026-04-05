@@ -1,5 +1,11 @@
-import type { Business } from "@prisma/client";
 import { createRequire } from "module";
+
+interface Business {
+  name: string;
+  gmbAccountId: string;
+  gmbLocationId: string;
+  lastCheckedAt: Date | null;
+}
 const require = createRequire(import.meta.url);
 const mockData = require("../mock/reviews.json") as { reviews: unknown[] };
 

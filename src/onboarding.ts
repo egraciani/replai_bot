@@ -1,10 +1,17 @@
-import { prisma } from "./db.js";
+import { supabase } from "./supabase.js";
 import { bot } from "./botInstance.js";
 import { generateReply } from "./services/replyGenerator.js";
 import { fetchReviewsMock } from "./services/reviewFetcher.js";
-import type { Business, Persona } from "@prisma/client";
 
-// ── Conversation state stored in DB persona + in-memory for onboarding steps ─
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface PersonaPartial {
+  tone?: string;
+  goodInstructions?: string;
+  mediumInstructions?: string;
+  badInstructions?: string;
+  language?: string;
+}
 
 type OnboardingStep =
   | "ask_good"
@@ -20,7 +27,7 @@ const onboardingState = new Map<
     businessId: string;
     step: OnboardingStep;
     attempts: number;
-    partial: Partial<Omit<Persona, "id" | "businessId" | "createdAt" | "updatedAt">>;
+    partial: PersonaPartial;
   }
 >();
 
@@ -32,8 +39,15 @@ const TONE_LABELS: Record<string, string> = {
   professional: "Profesional y pulido",
 };
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export async function startOnboarding(chatId: string, businessId: string): Promise<void> {
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("name")
+    .eq("id", businessId)
+    .single();
+
   if (!business) {
     await bot.api.sendMessage(chatId, "❌ No encontré tu negocio. Por favor, contacta con soporte.");
     return;
@@ -64,7 +78,11 @@ export async function handleOnboardingMessage(chatId: string, text: string): Pro
   const state = onboardingState.get(chatId);
   if (!state) return;
 
-  const business = await prisma.business.findUnique({ where: { id: state.businessId } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, name")
+    .eq("id", state.businessId)
+    .single();
   if (!business) return;
 
   switch (state.step) {
@@ -114,14 +132,14 @@ export async function handleOnboardingMessage(chatId: string, text: string): Pro
     }
 
     case "ask_tone": {
-      // Handled by callback query — this case shouldn't normally be hit
+      // Handled by callback query
       break;
     }
 
     case "confirm_sample": {
       const lower = text.toLowerCase().trim();
       if (lower === "sí" || lower === "si" || lower === "yes") {
-        await activateAutopilot(chatId, state.businessId, state.partial as Required<typeof state.partial>);
+        await activateAutopilot(chatId, state.businessId, state.partial as Required<PersonaPartial>);
       } else {
         state.attempts += 1;
         if (state.attempts >= 3) {
@@ -129,9 +147,8 @@ export async function handleOnboardingMessage(chatId: string, text: string): Pro
             chatId,
             `Voy a guardar esta configuración por ahora. Puedes ajustarla más tarde con /settings.`
           );
-          await activateAutopilot(chatId, state.businessId, state.partial as Required<typeof state.partial>);
+          await activateAutopilot(chatId, state.businessId, state.partial as Required<PersonaPartial>);
         } else {
-          // Restart from Q1
           state.step = "ask_good";
           state.partial = { language: state.partial.language };
           await bot.api.sendMessage(
@@ -156,19 +173,25 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
   state.partial.tone = tone;
   state.step = "confirm_sample";
 
-  const business = await prisma.business.findUnique({ where: { id: state.businessId } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, name")
+    .eq("id", state.businessId)
+    .single();
   if (!business) return;
 
   await bot.api.sendMessage(chatId, `✅ Tono: *${TONE_LABELS[tone] ?? tone}*\n\n⏳ Generando una respuesta de muestra...`, {
     parse_mode: "Markdown",
   });
 
-  // Generate a sample reply using the most recent real-ish review
   try {
-    const reviews = await fetchReviewsMock(business, null);
+    const reviews = await fetchReviewsMock(
+      { name: business.name, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
+      null
+    );
     const sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
 
-    const partialPersona = {
+    const personaForGenerator = {
       id: "preview",
       businessId: state.businessId,
       tone: state.partial.tone ?? "warm",
@@ -180,7 +203,7 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
       updatedAt: new Date(),
     };
 
-    const sampleReply = await generateReply(sample, business.name, partialPersona, partialPersona.language);
+    const sampleReply = await generateReply(sample, business.name, personaForGenerator, personaForGenerator.language);
 
     await bot.api.sendMessage(
       chatId,
@@ -201,21 +224,29 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
   onboardingState.set(chatId, state);
 }
 
+// ── Internal ──────────────────────────────────────────────────────────────────
+
 async function activateAutopilot(
   chatId: string,
   businessId: string,
-  partial: Required<Pick<Persona, "tone" | "goodInstructions" | "mediumInstructions" | "badInstructions" | "language">>
+  partial: Required<PersonaPartial>
 ): Promise<void> {
-  await prisma.persona.upsert({
-    where: { businessId },
-    create: { businessId, ...partial },
-    update: partial,
-  });
+  await supabase.from("personas").upsert(
+    {
+      business_id: businessId,
+      tone: partial.tone,
+      good_instructions: partial.goodInstructions,
+      medium_instructions: partial.mediumInstructions,
+      bad_instructions: partial.badInstructions,
+      language: partial.language,
+    },
+    { onConflict: "business_id" }
+  );
 
-  await prisma.business.update({
-    where: { id: businessId },
-    data: { autopilotEnabled: true },
-  });
+  await supabase
+    .from("businesses")
+    .update({ autopilot_enabled: true })
+    .eq("id", businessId);
 
   onboardingState.delete(chatId);
 

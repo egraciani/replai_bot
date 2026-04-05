@@ -14,7 +14,7 @@ import { registerReviewHandlers, handleResenas } from "./commands/reviews.js";
 import { registerGenerateHandlers, handleEditText } from "./commands/generate.js";
 import { handlePlan } from "./commands/plan.js";
 import { handleHelp } from "./commands/help.js";
-import { prisma } from "./db.js";
+import { supabase } from "./supabase.js";
 import {
   startOnboarding,
   isOnboarding,
@@ -31,30 +31,65 @@ bot.command("start", async (ctx) => {
   // Autopilot onboarding deep link: /start onboard_<token>
   if (param?.startsWith("onboard_")) {
     const token = param.slice("onboard_".length);
-    const record = await prisma.onboardingToken.findUnique({ where: { token } });
+
+    const { data: record } = await supabase
+      .from("onboarding_tokens")
+      .select("*")
+      .eq("token", token)
+      .single();
 
     if (!record) {
       await ctx.reply("❌ Este enlace no es válido. Vuelve a replai.app para obtener uno nuevo.");
       return;
     }
-    if (record.usedAt || record.expiresAt < new Date()) {
+    if (record.used_at || new Date(record.expires_at) < new Date()) {
       await ctx.reply("⏰ Este enlace ha expirado o ya fue usado. Vuelve a replai.app para obtener uno nuevo.");
       return;
     }
 
-    await prisma.onboardingToken.update({ where: { token }, data: { usedAt: new Date() } });
-    await prisma.user.update({
-      where: { id: record.userId },
-      data: { telegramChatId: String(ctx.chat.id) },
-    });
+    // Mark token as used
+    await supabase
+      .from("onboarding_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("token", token);
 
-    const business = await prisma.business.findFirst({ where: { userId: record.userId } });
-    if (!business) {
-      await ctx.reply("❌ No encontré tu negocio. Por favor, contacta con soporte.");
-      return;
+    // Link Telegram chat to Supabase user
+    await supabase.from("telegram_links").upsert(
+      { user_id: record.user_id, telegram_user_id: Number(ctx.chat.id) },
+      { onConflict: "user_id" }
+    );
+
+    // Upsert the business (may already exist if user connected GMB on web)
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("user_id", record.user_id)
+      .maybeSingle();
+
+    let businessId: string;
+    if (business) {
+      businessId = business.id;
+    } else {
+      const { data: newBusiness } = await supabase
+        .from("businesses")
+        .insert({
+          user_id: record.user_id,
+          name: record.business_name,
+          google_account_id: record.gmb_account_id || null,
+          google_location_id: record.gmb_location_id || null,
+          google_place_id: record.gmb_location_id || "pending",
+        })
+        .select("id")
+        .single();
+
+      if (!newBusiness) {
+        await ctx.reply("❌ No pude crear tu negocio. Por favor, contacta con soporte.");
+        return;
+      }
+      businessId = newBusiness.id;
     }
 
-    await startOnboarding(String(ctx.chat.id), business.id);
+    await startOnboarding(String(ctx.chat.id), businessId);
     return;
   }
 
@@ -86,48 +121,80 @@ bot.command(["help", "ayuda"], handleHelp);
 
 bot.command("pause", async (ctx) => {
   const chatId = String(ctx.chat.id);
-  const user = await prisma.user.findUnique({ where: { telegramChatId: chatId } });
-  if (!user) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  const business = await prisma.business.findFirst({ where: { userId: user.id, autopilotEnabled: true } });
-  if (!business) { await ctx.reply("El piloto automático ya está pausado."); return; }
+  const { data: link } = await supabase
+    .from("telegram_links")
+    .select("user_id")
+    .eq("telegram_user_id", ctx.chat.id)
+    .single();
+  if (!link) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  await prisma.business.update({ where: { id: business.id }, data: { autopilotEnabled: false } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, autopilot_enabled")
+    .eq("user_id", link.user_id)
+    .single();
+  if (!business) { await ctx.reply("No tienes ningún negocio conectado."); return; }
+  if (!business.autopilot_enabled) { await ctx.reply("El piloto automático ya está pausado."); return; }
+
+  await supabase.from("businesses").update({ autopilot_enabled: false }).eq("id", business.id);
   await ctx.reply("⏸ Piloto automático pausado. Usa /resume para reactivarlo.");
 });
 
 bot.command("resume", async (ctx) => {
-  const chatId = String(ctx.chat.id);
-  const user = await prisma.user.findUnique({ where: { telegramChatId: chatId } });
-  if (!user) { await ctx.reply("No tienes ningún negocio conectado."); return; }
+  const { data: link } = await supabase
+    .from("telegram_links")
+    .select("user_id")
+    .eq("telegram_user_id", ctx.chat.id)
+    .single();
+  if (!link) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  const business = await prisma.business.findFirst({ where: { userId: user.id } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("user_id", link.user_id)
+    .single();
   if (!business) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  const persona = await prisma.persona.findUnique({ where: { businessId: business.id } });
+  const { data: persona } = await supabase
+    .from("personas")
+    .select("id")
+    .eq("business_id", business.id)
+    .single();
   if (!persona) { await ctx.reply("Completa la configuración primero."); return; }
 
-  await prisma.business.update({ where: { id: business.id }, data: { autopilotEnabled: true } });
+  await supabase.from("businesses").update({ autopilot_enabled: true }).eq("id", business.id);
   await ctx.reply("▶️ Piloto automático reactivado.");
 });
 
 bot.command("status", async (ctx) => {
-  const chatId = String(ctx.chat.id);
-  const user = await prisma.user.findUnique({ where: { telegramChatId: chatId } });
-  if (!user) { await ctx.reply("No tienes ningún negocio conectado."); return; }
+  const { data: link } = await supabase
+    .from("telegram_links")
+    .select("user_id")
+    .eq("telegram_user_id", ctx.chat.id)
+    .single();
+  if (!link) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  const business = await prisma.business.findFirst({ where: { userId: user.id } });
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, name, autopilot_enabled")
+    .eq("user_id", link.user_id)
+    .single();
   if (!business) { await ctx.reply("No tienes ningún negocio conectado."); return; }
 
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const logs = await prisma.replyLog.findMany({ where: { businessId: business.id, createdAt: { gte: since } } });
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: logs } = await supabase
+    .from("reply_logs")
+    .select("status")
+    .eq("business_id", business.id)
+    .gte("created_at", since);
 
-  const posted = logs.filter((l) => l.status === "POSTED").length;
-  const failed = logs.filter((l) => l.status === "FAILED").length;
+  const posted = (logs ?? []).filter((l) => l.status === "POSTED").length;
+  const failed = (logs ?? []).filter((l) => l.status === "FAILED").length;
 
   await ctx.reply(
     `📊 *Estado — ${business.name}*\n\n` +
-      `Piloto: ${business.autopilotEnabled ? "✅ Activo" : "⏸ Pausado"}\n\n` +
+      `Piloto: ${business.autopilot_enabled ? "✅ Activo" : "⏸ Pausado"}\n\n` +
       `Últimas 24h:\n• Respondidas: ${posted}\n• Fallidas: ${failed}`,
     { parse_mode: "Markdown" }
   );
@@ -150,7 +217,6 @@ bot.callbackQuery(/^tone_(\w+)_(.+)$/, async (ctx) => {
 bot.on("message:text", async (ctx) => {
   const chatId = String(ctx.chat.id);
 
-  // Route to onboarding if active
   if (isOnboarding(chatId)) {
     await handleOnboardingMessage(chatId, ctx.message.text.trim());
     return;

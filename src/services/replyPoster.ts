@@ -1,4 +1,8 @@
-import type { Business } from "@prisma/client";
+interface Business {
+  name: string;
+  gmbAccountId: string;
+  gmbLocationId: string;
+}
 
 // ── Real GMB reply poster ─────────────────────────────────────────────────────
 
