@@ -17,6 +17,7 @@ import { handleHelp } from "./commands/help.js";
 import { supabase } from "./supabase.js";
 import {
   startOnboarding,
+  startFreshOnboarding,
   isOnboarding,
   handleOnboardingMessage,
   handleToneCallback,
@@ -118,7 +119,7 @@ bot.command("start", async (ctx) => {
     return;
   }
 
-  await handleHelp(ctx);
+  await startFreshOnboarding(String(ctx.chat.id));
 });
 
 bot.command("vincular", async (ctx) => {

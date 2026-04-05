@@ -11,9 +11,11 @@ interface PersonaPartial {
   mediumInstructions?: string;
   badInstructions?: string;
   language?: string;
+  businessName?: string;
 }
 
 type OnboardingStep =
+  | "ask_business_name"
   | "ask_good"
   | "ask_medium"
   | "ask_bad"
@@ -24,7 +26,7 @@ type OnboardingStep =
 const onboardingState = new Map<
   string, // telegramChatId
   {
-    businessId: string;
+    businessId: string | null; // null for fresh (no-web-account) onboarding
     step: OnboardingStep;
     attempts: number;
     partial: PersonaPartial;
@@ -41,6 +43,7 @@ const TONE_LABELS: Record<string, string> = {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/** Start onboarding for a user who linked via the web dashboard (has a businessId already). */
 export async function startOnboarding(chatId: string, businessId: string): Promise<void> {
   const { data: business } = await supabase
     .from("businesses")
@@ -57,7 +60,7 @@ export async function startOnboarding(chatId: string, businessId: string): Promi
     businessId,
     step: "ask_good",
     attempts: 0,
-    partial: { language: "es" },
+    partial: { language: "es", businessName: business.name },
   });
 
   await bot.api.sendMessage(
@@ -70,6 +73,23 @@ export async function startOnboarding(chatId: string, businessId: string): Promi
   );
 }
 
+/** Start onboarding for a fresh Telegram user with no web account. */
+export async function startFreshOnboarding(chatId: string): Promise<void> {
+  onboardingState.set(chatId, {
+    businessId: null,
+    step: "ask_business_name",
+    attempts: 0,
+    partial: { language: "es" },
+  });
+
+  await bot.api.sendMessage(
+    chatId,
+    `👋 ¡Hola! Soy el piloto automático de reseñas de Google.\n\n` +
+      `Voy a aprender cómo responder a las reseñas de tu negocio. Solo necesito 2 minutos.\n\n` +
+      `¿Cómo se llama tu negocio?`,
+  );
+}
+
 export function isOnboarding(chatId: string): boolean {
   return onboardingState.has(chatId);
 }
@@ -78,14 +98,20 @@ export async function handleOnboardingMessage(chatId: string, text: string): Pro
   const state = onboardingState.get(chatId);
   if (!state) return;
 
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("id, name")
-    .eq("id", state.businessId)
-    .single();
-  if (!business) return;
-
   switch (state.step) {
+    case "ask_business_name": {
+      state.partial.businessName = text;
+      state.step = "ask_good";
+      await bot.api.sendMessage(
+        chatId,
+        `✅ Perfecto, *${text}*.\n\n` +
+          `⭐⭐⭐⭐⭐ *¿Cómo quieres responder a las reseñas positivas (4-5 estrellas)?*\n\n` +
+          `_Ejemplo: "Agradece el detalle mencionado y invita a volver pronto"_`,
+        { parse_mode: "Markdown" }
+      );
+      break;
+    }
+
     case "ask_good": {
       state.partial.goodInstructions = text;
       state.step = "ask_medium";
@@ -150,7 +176,7 @@ export async function handleOnboardingMessage(chatId: string, text: string): Pro
           await activateAutopilot(chatId, state.businessId, state.partial as Required<PersonaPartial>);
         } else {
           state.step = "ask_good";
-          state.partial = { language: state.partial.language };
+          state.partial = { language: state.partial.language, businessName: state.partial.businessName };
           await bot.api.sendMessage(
             chatId,
             `No hay problema. Volvamos a empezar.\n\n` +
@@ -173,12 +199,7 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
   state.partial.tone = tone;
   state.step = "confirm_sample";
 
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("id, name")
-    .eq("id", state.businessId)
-    .single();
-  if (!business) return;
+  const businessName = state.partial.businessName ?? "tu negocio";
 
   await bot.api.sendMessage(chatId, `✅ Tono: *${TONE_LABELS[tone] ?? tone}*\n\n⏳ Generando una respuesta de muestra...`, {
     parse_mode: "Markdown",
@@ -186,14 +207,14 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
 
   try {
     const reviews = await fetchReviewsMock(
-      { name: business.name, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
+      { name: businessName, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
       null
     );
     const sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
 
     const personaForGenerator = {
       id: "preview",
-      businessId: state.businessId,
+      businessId: state.businessId ?? "preview",
       tone: state.partial.tone ?? "warm",
       goodInstructions: state.partial.goodInstructions ?? "",
       mediumInstructions: state.partial.mediumInstructions ?? "",
@@ -203,7 +224,7 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
       updatedAt: new Date(),
     };
 
-    const sampleReply = await generateReply(sample, business.name, personaForGenerator, personaForGenerator.language);
+    const sampleReply = await generateReply(sample, businessName, personaForGenerator, personaForGenerator.language);
 
     await bot.api.sendMessage(
       chatId,
@@ -228,12 +249,65 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
 
 async function activateAutopilot(
   chatId: string,
-  businessId: string,
+  businessId: string | null,
   partial: Required<PersonaPartial>
 ): Promise<void> {
+  let resolvedBusinessId = businessId;
+
+  // Fresh onboarding (no web account) — create shadow user + business
+  if (!resolvedBusinessId) {
+    const email = `telegram_${chatId}@autoreplai.app`;
+
+    // Create or reuse shadow auth user
+    const { data: { users } } = await supabase.auth.admin.listUsers();
+    let userId = users.find((u) => u.email === email)?.id;
+
+    if (!userId) {
+      const { data: created } = await supabase.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { telegram_chat_id: chatId },
+      });
+      userId = created.user?.id;
+    }
+
+    if (!userId) {
+      await bot.api.sendMessage(chatId, "❌ No pude crear tu cuenta. Contacta con soporte.");
+      return;
+    }
+
+    // Ensure profile exists
+    await supabase.from("profiles").upsert({ id: userId, email }, { onConflict: "id" });
+
+    // Link telegram
+    await supabase.from("telegram_links").upsert(
+      { user_id: userId, telegram_user_id: Number(chatId) },
+      { onConflict: "user_id" }
+    );
+
+    // Create business
+    const { data: biz } = await supabase
+      .from("businesses")
+      .insert({
+        user_id: userId,
+        name: partial.businessName,
+        google_account_id: null,
+        google_location_id: null,
+        google_place_id: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (!biz) {
+      await bot.api.sendMessage(chatId, "❌ No pude crear tu negocio. Contacta con soporte.");
+      return;
+    }
+    resolvedBusinessId = biz.id;
+  }
+
   await supabase.from("personas").upsert(
     {
-      business_id: businessId,
+      business_id: resolvedBusinessId,
       tone: partial.tone,
       good_instructions: partial.goodInstructions,
       medium_instructions: partial.mediumInstructions,
@@ -246,7 +320,7 @@ async function activateAutopilot(
   await supabase
     .from("businesses")
     .update({ autopilot_enabled: true })
-    .eq("id", businessId);
+    .eq("id", resolvedBusinessId);
 
   onboardingState.delete(chatId);
 
