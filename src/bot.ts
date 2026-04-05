@@ -20,6 +20,7 @@ import {
   startFreshOnboarding,
   isOnboarding,
   handleOnboardingMessage,
+  handleBusinessConfirmCallback,
   handleToneCallback,
 } from "./onboarding.js";
 import { startAutopilot } from "./autopilot.js";
@@ -52,12 +53,9 @@ bot.command("start", async (ctx) => {
 
     console.log(`[onboard] record=${JSON.stringify(record)} error=${JSON.stringify(tokenError)}`);
 
-    if (!record) {
-      await ctx.reply("❌ Este enlace no es válido. Vuelve a replai.app para obtener uno nuevo.");
-      return;
-    }
-    if (record.used_at || new Date(record.expires_at) < new Date()) {
-      await ctx.reply("⏰ Este enlace ha expirado o ya fue usado. Vuelve a replai.app para obtener uno nuevo.");
+    if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+      // Token invalid/expired — start fresh onboarding with userId from token if available
+      await startFreshOnboarding(String(ctx.chat.id), record?.user_id);
       return;
     }
 
@@ -225,6 +223,12 @@ bot.command("status", async (ctx) => {
 registerDemoHandlers(bot);
 registerReviewHandlers(bot);
 registerGenerateHandlers(bot);
+
+bot.callbackQuery(/^ob_biz_(yes|no)_(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery().catch(() => {});
+  const [, answer, chatId] = ctx.match!;
+  await handleBusinessConfirmCallback(chatId, answer === "yes");
+});
 
 bot.callbackQuery(/^tone_(\w+)_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});
