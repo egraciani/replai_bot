@@ -23,6 +23,16 @@ import {
 } from "./onboarding.js";
 import { startAutopilot } from "./autopilot.js";
 
+// ── Logging middleware ─────────────────────────────────────────────────────────
+
+bot.use(async (ctx, next) => {
+  const msg = ctx.message;
+  if (msg) {
+    console.log(`[tg] from=${msg.from?.username ?? msg.from?.id} chat=${msg.chat.id} text=${JSON.stringify(msg.text)}`);
+  }
+  await next();
+});
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 bot.command("start", async (ctx) => {
