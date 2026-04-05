@@ -4,7 +4,7 @@
   "description": "Telegram bot for replai sales demos",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/bot.ts",
+    "dev": "tsx --env-file=.env src/bot.ts",
     "build": "tsc",
     "start": "node dist/bot.js",
     "webhook": "bash scripts/set-webhook.sh"
