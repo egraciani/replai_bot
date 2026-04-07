@@ -5,9 +5,19 @@ import { useState } from "react";
 interface Props {
   businessName: string;
   initialDeepLink: string;
+  serviceTier: string;
 }
 
-export default function AutopilotCard({ businessName, initialDeepLink }: Props) {
+const TIER_DESCRIPTIONS: Record<string, string> = {
+  manual:
+    "Cuando detectemos nuevas reseñas, te enviaremos una respuesta sugerida por Telegram para que la copies y pegues en Google Maps.",
+  manager:
+    "Nuestro equipo se encarga de publicar las respuestas por ti. Solo necesitas tener a info@autoreplai.com como administrador en tu perfil de Google Business.",
+  automated:
+    "Las respuestas se publican automáticamente en Google Maps sin intervención.",
+};
+
+export default function AutopilotCard({ businessName, initialDeepLink, serviceTier }: Props) {
   const [deepLink, setDeepLink] = useState(initialDeepLink);
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +48,11 @@ export default function AutopilotCard({ businessName, initialDeepLink }: Props) 
       </div>
 
       <p className="mt-4 text-sm text-gray-600">
-        Configura cómo quieres responder tus reseñas de Google en solo 2 minutos a través de Telegram.
+        {TIER_DESCRIPTIONS[serviceTier] ?? TIER_DESCRIPTIONS.manual}
+      </p>
+
+      <p className="mt-3 text-sm text-gray-600">
+        Configura cómo quieres responder tus reseñas en solo 2 minutos a través de Telegram.
       </p>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -48,7 +62,7 @@ export default function AutopilotCard({ businessName, initialDeepLink }: Props) 
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
         >
-          Abrir en Telegram →
+          Abrir en Telegram &rarr;
         </a>
         <button
           onClick={refreshLink}

@@ -1,7 +1,9 @@
 import { supabase } from "./supabase.js";
 import { bot } from "./botInstance.js";
 import { generateReply } from "./services/replyGenerator.js";
-import { fetchReviewsMock } from "./services/reviewFetcher.js";
+import { fetchReviewsMock, intToStar } from "./services/reviewFetcher.js";
+import { getBusinessReviews } from "./google.js";
+import type { ServiceTier } from "./types.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -175,7 +177,7 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id, name")
+    .select("id, name, google_place_id")
     .eq("id", state.businessId)
     .single();
   if (!business) return;
@@ -185,11 +187,36 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
   });
 
   try {
-    const reviews = await fetchReviewsMock(
-      { name: business.name, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
-      null
-    );
-    const sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
+    let sample;
+
+    // Try real Places API reviews first
+    if (business.google_place_id && business.google_place_id !== "pending") {
+      try {
+        const placeData = await getBusinessReviews(business.google_place_id);
+        const realReview = placeData.reviews.find((r) => r.text.length > 20) ?? placeData.reviews[0];
+        if (realReview) {
+          sample = {
+            reviewId: "sample",
+            reviewer: { displayName: realReview.author_name, isAnonymous: false },
+            starRating: intToStar(realReview.rating),
+            comment: realReview.text,
+            createTime: new Date().toISOString(),
+            reviewReply: null,
+          };
+        }
+      } catch {
+        // Fall through to mock
+      }
+    }
+
+    // Fall back to mock reviews
+    if (!sample) {
+      const reviews = await fetchReviewsMock(
+        { name: business.name, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
+        null
+      );
+      sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
+    }
 
     const personaForGenerator = {
       id: "preview",
@@ -248,17 +275,45 @@ async function activateAutopilot(
     .update({ autopilot_enabled: true })
     .eq("id", businessId);
 
+  // Get service tier for tier-aware message
+  const { data: biz } = await supabase
+    .from("businesses")
+    .select("service_tier")
+    .eq("id", businessId)
+    .single();
+
+  const tier: ServiceTier = biz?.service_tier ?? "manual";
+
   onboardingState.delete(chatId);
 
-  await bot.api.sendMessage(
-    chatId,
-    `✅ *¡Piloto automático activado!*\n\n` +
+  const tierMessages: Record<ServiceTier, string> = {
+    manual:
+      `✅ *¡Configuración completada!*\n\n` +
+      `Cuando detecte una nueva reseña, te enviaré una respuesta sugerida por aquí.\n` +
+      `Solo tendrás que copiarla y pegarla en Google Maps.\n\n` +
+      `Recibirás un resumen diario cada mañana.\n\n` +
+      `Comandos útiles:\n` +
+      `• /pause — pausar notificaciones\n` +
+      `• /resume — reactivar\n` +
+      `• /status — ver actividad reciente`,
+    manager:
+      `✅ *¡Configuración completada!*\n\n` +
+      `Nuestro equipo se encargará de publicar las respuestas en Google Maps por ti.\n` +
+      `Te notificaremos cuando se detecten nuevas reseñas.\n\n` +
+      `Recibirás un resumen diario cada mañana.\n\n` +
+      `Comandos útiles:\n` +
+      `• /pause — pausar notificaciones\n` +
+      `• /resume — reactivar\n` +
+      `• /status — ver actividad reciente`,
+    automated:
+      `✅ *¡Piloto automático activado!*\n\n` +
       `A partir de ahora responderé a tus nuevas reseñas de Google automáticamente.\n\n` +
       `Recibirás un resumen diario cada mañana.\n\n` +
       `Comandos útiles:\n` +
       `• /pause — pausar el piloto automático\n` +
       `• /resume — reactivarlo\n` +
       `• /status — ver actividad reciente`,
-    { parse_mode: "Markdown" }
-  );
+  };
+
+  await bot.api.sendMessage(chatId, tierMessages[tier], { parse_mode: "Markdown" });
 }

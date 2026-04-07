@@ -21,6 +21,9 @@ export interface PlaceResult {
   rating: number;
 }
 
+// Service tiers
+export type ServiceTier = "manual" | "manager" | "automated";
+
 // Database row types
 
 export interface DbBusiness {
@@ -31,6 +34,9 @@ export interface DbBusiness {
   google_location_id: string | null;
   location_name: string | null;
   location_address: string | null;
+  service_tier: ServiceTier;
+  user_rating_count: number | null;
+  autopilot_enabled: boolean;
 }
 
 export interface DbReview {
