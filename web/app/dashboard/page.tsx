@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import AutopilotCard from "./autopilot-card";
 
 const TIER_LABELS: Record<string, string> = {
@@ -33,13 +33,15 @@ export default async function DashboardPage() {
   const businessName = (business.name || business.location_name || "Tu negocio") as string;
   const tier = (business.service_tier ?? "manual") as string;
 
-  // Generate autopilot deeplink server-side
+  // Generate autopilot deeplink — use admin client to bypass RLS on onboarding_tokens
+  const admin = createAdminClient();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   const { randomUUID } = await import("crypto");
   const token = randomUUID();
 
-  await supabase.from("onboarding_tokens").delete().eq("user_id", user.id).is("used_at", null);
-  await supabase.from("onboarding_tokens").insert({
+  // Delete stale unused tokens and insert fresh one
+  await admin.from("onboarding_tokens").delete().eq("user_id", user.id).is("used_at", null);
+  const { error: insertError } = await admin.from("onboarding_tokens").insert({
     user_id: user.id,
     email: user.email ?? "",
     token,
@@ -48,6 +50,7 @@ export default async function DashboardPage() {
     business_name: businessName,
     expires_at: expiresAt,
   });
+  if (insertError) console.error("[dashboard] onboarding_tokens insert error:", insertError);
 
   const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "autoreplai_bot";
   const deepLink = `https://t.me/${botUsername}?start=onboard_${token}`;
