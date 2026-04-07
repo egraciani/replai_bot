@@ -2,9 +2,9 @@ import { InlineKeyboard } from "grammy";
 import { supabase } from "./supabase.js";
 import { bot } from "./botInstance.js";
 import { generateReply } from "./services/replyGenerator.js";
-import { fetchReviewsMock } from "./services/reviewFetcher.js";
-import { findBusiness } from "./google.js";
-import type { PlaceResult } from "./types.js";
+import { fetchReviewsMock, intToStar } from "./services/reviewFetcher.js";
+import { findBusiness, getBusinessReviews } from "./google.js";
+import type { PlaceResult, ServiceTier } from "./types.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -269,16 +269,52 @@ export async function handleToneCallback(chatId: string, tone: string): Promise<
 
   const businessName = state.partial.businessName ?? "tu negocio";
 
+  // Try to get google_place_id if we have a businessId
+  let googlePlaceId: string | null = null;
+  if (state.businessId) {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("google_place_id")
+      .eq("id", state.businessId)
+      .single();
+    googlePlaceId = biz?.google_place_id ?? null;
+  }
+
   await bot.api.sendMessage(chatId, `✅ Tono: *${TONE_LABELS[tone] ?? tone}*\n\n⏳ Generando una respuesta de muestra...`, {
     parse_mode: "Markdown",
   });
 
   try {
-    const reviews = await fetchReviewsMock(
-      { name: businessName, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
-      null
-    );
-    const sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
+    let sample;
+
+    // Try real Places API reviews first
+    if (googlePlaceId && googlePlaceId !== "pending") {
+      try {
+        const placeData = await getBusinessReviews(googlePlaceId);
+        const realReview = placeData.reviews.find((r) => r.text.length > 20) ?? placeData.reviews[0];
+        if (realReview) {
+          sample = {
+            reviewId: "sample",
+            reviewer: { displayName: realReview.author_name, isAnonymous: false },
+            starRating: intToStar(realReview.rating),
+            comment: realReview.text,
+            createTime: new Date().toISOString(),
+            reviewReply: null,
+          };
+        }
+      } catch {
+        // Fall through to mock
+      }
+    }
+
+    // Fall back to mock reviews
+    if (!sample) {
+      const reviews = await fetchReviewsMock(
+        { name: businessName, gmbAccountId: "", gmbLocationId: "", lastCheckedAt: null },
+        null
+      );
+      sample = reviews.find((r) => r.comment.length > 20 && !r.reviewReply) ?? reviews[0];
+    }
 
     const personaForGenerator = {
       id: "preview",
@@ -393,17 +429,45 @@ async function activateAutopilot(
     .update({ autopilot_enabled: true })
     .eq("id", resolvedBusinessId);
 
+  // Get service tier for tier-aware message
+  const { data: tierRow } = await supabase
+    .from("businesses")
+    .select("service_tier")
+    .eq("id", resolvedBusinessId)
+    .single();
+
+  const tier: ServiceTier = tierRow?.service_tier ?? "manual";
+
   onboardingState.delete(chatId);
 
-  await bot.api.sendMessage(
-    chatId,
-    `✅ *¡Piloto automático activado!*\n\n` +
+  const tierMessages: Record<ServiceTier, string> = {
+    manual:
+      `✅ *¡Configuración completada!*\n\n` +
+      `Cuando detecte una nueva reseña, te enviaré una respuesta sugerida por aquí.\n` +
+      `Solo tendrás que copiarla y pegarla en Google Maps.\n\n` +
+      `Recibirás un resumen diario cada mañana.\n\n` +
+      `Comandos útiles:\n` +
+      `• /pause — pausar notificaciones\n` +
+      `• /resume — reactivar\n` +
+      `• /status — ver actividad reciente`,
+    manager:
+      `✅ *¡Configuración completada!*\n\n` +
+      `Nuestro equipo se encargará de publicar las respuestas en Google Maps por ti.\n` +
+      `Te notificaremos cuando se detecten nuevas reseñas.\n\n` +
+      `Recibirás un resumen diario cada mañana.\n\n` +
+      `Comandos útiles:\n` +
+      `• /pause — pausar notificaciones\n` +
+      `• /resume — reactivar\n` +
+      `• /status — ver actividad reciente`,
+    automated:
+      `✅ *¡Piloto automático activado!*\n\n` +
       `A partir de ahora responderé a tus nuevas reseñas de Google automáticamente.\n\n` +
       `Recibirás un resumen diario cada mañana.\n\n` +
       `Comandos útiles:\n` +
       `• /pause — pausar el piloto automático\n` +
       `• /resume — reactivarlo\n` +
       `• /status — ver actividad reciente`,
-    { parse_mode: "Markdown" }
-  );
+  };
+
+  await bot.api.sendMessage(chatId, tierMessages[tier], { parse_mode: "Markdown" });
 }

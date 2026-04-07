@@ -1,4 +1,8 @@
 import { createRequire } from "module";
+import { createHash } from "crypto";
+import { getBusinessReviews } from "../google.js";
+import { supabase } from "../supabase.js";
+import type { ServiceTier } from "../types.js";
 
 interface Business {
   name: string;
@@ -6,6 +10,15 @@ interface Business {
   gmbLocationId: string;
   lastCheckedAt: Date | null;
 }
+
+interface PlacesBusiness {
+  id: string;
+  name: string;
+  googlePlaceId: string;
+  serviceTier: ServiceTier;
+  lastCheckedAt: Date | null;
+}
+
 const require = createRequire(import.meta.url);
 const mockData = require("../mock/reviews.json") as { reviews: unknown[] };
 
@@ -59,6 +72,42 @@ export async function fetchReviewsMock(
   const reviews = mockData.reviews as GmbReview[];
   if (!since) return reviews;
   return reviews.filter((r) => new Date(r.createTime) > since);
+}
+
+// ── Places API fetcher (manual/manager tiers) ──────────────────────────────
+
+function reviewFingerprint(author: string, rating: number, text: string): string {
+  const input = `${author}|${rating}|${text.slice(0, 100)}`;
+  return createHash("md5").update(input).digest("hex");
+}
+
+export async function fetchReviewsPlaces(
+  placeId: string,
+  knownReviewIds: Set<string>
+): Promise<GmbReview[]> {
+  const data = await getBusinessReviews(placeId);
+
+  return data.reviews
+    .map((r) => {
+      const id = reviewFingerprint(r.author_name, r.rating, r.text);
+      return {
+        reviewId: id,
+        reviewer: { displayName: r.author_name, isAnonymous: false },
+        starRating: intToStar(r.rating),
+        comment: r.text,
+        createTime: new Date().toISOString(),
+        reviewReply: null,
+      } as GmbReview;
+    })
+    .filter((r) => !knownReviewIds.has(r.reviewId));
+}
+
+const INT_TO_STAR: Record<number, GmbReview["starRating"]> = {
+  1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE",
+};
+
+export function intToStar(n: number): GmbReview["starRating"] {
+  return INT_TO_STAR[Math.max(1, Math.min(5, Math.round(n)))] ?? "THREE";
 }
 
 // ── Auto-select based on env ─────────────────────────────────────────────────

@@ -24,6 +24,7 @@ import {
   handleToneCallback,
 } from "./onboarding.js";
 import { startAutopilot } from "./autopilot.js";
+import { registerTierCallbacks } from "./commands/tier-callbacks.js";
 
 // ── Logging middleware ─────────────────────────────────────────────────────────
 
@@ -195,10 +196,13 @@ bot.command("status", async (ctx) => {
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("id, name, autopilot_enabled")
+    .select("id, name, autopilot_enabled, service_tier")
     .eq("user_id", link.user_id)
     .single();
   if (!business) { await ctx.reply("No tienes ningún negocio conectado."); return; }
+
+  const tierLabels: Record<string, string> = { manual: "Manual", manager: "Manager", automated: "Automático" };
+  const tierLabel = tierLabels[business.service_tier] ?? business.service_tier;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: logs } = await supabase
@@ -208,12 +212,23 @@ bot.command("status", async (ctx) => {
     .gte("created_at", since);
 
   const posted = (logs ?? []).filter((l) => l.status === "POSTED").length;
+  const manual = (logs ?? []).filter((l) => l.status === "MANUAL").length;
   const failed = (logs ?? []).filter((l) => l.status === "FAILED").length;
+
+  let statsLine: string;
+  if (business.service_tier === "manual") {
+    statsLine = `• Sugeridas: ${manual + posted}\n• Publicadas: ${posted}\n• Fallidas: ${failed}`;
+  } else if (business.service_tier === "manager") {
+    statsLine = `• Gestionadas: ${posted}\n• Pendientes: ${manual}\n• Fallidas: ${failed}`;
+  } else {
+    statsLine = `• Respondidas: ${posted}\n• Fallidas: ${failed}`;
+  }
 
   await ctx.reply(
     `📊 *Estado — ${business.name}*\n\n` +
+      `Servicio: ${tierLabel}\n` +
       `Piloto: ${business.autopilot_enabled ? "✅ Activo" : "⏸ Pausado"}\n\n` +
-      `Últimas 24h:\n• Respondidas: ${posted}\n• Fallidas: ${failed}`,
+      `Últimas 24h:\n${statsLine}`,
     { parse_mode: "Markdown" }
   );
 });
@@ -223,6 +238,7 @@ bot.command("status", async (ctx) => {
 registerDemoHandlers(bot);
 registerReviewHandlers(bot);
 registerGenerateHandlers(bot);
+registerTierCallbacks(bot);
 
 bot.callbackQuery(/^ob_biz_(yes|no)_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery().catch(() => {});

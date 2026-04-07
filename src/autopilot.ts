@@ -1,10 +1,17 @@
 import cron from "node-cron";
 import { supabase } from "./supabase.js";
-import { fetchNewReviews, starToInt } from "./services/reviewFetcher.js";
+import { fetchNewReviews, fetchReviewsPlaces, starToInt } from "./services/reviewFetcher.js";
 import { postReply } from "./services/replyPoster.js";
 import { detectLanguage } from "./services/languageDetector.js";
 import { generateReply, generateSummaryInsights } from "./services/replyGenerator.js";
 import { decrypt } from "./encryption.js";
+import {
+  notifyClientManualTier,
+  notifyOpsManagerTier,
+  notifyClientManagerTier,
+  getChatIdForUser,
+} from "./services/notifications.js";
+import type { ServiceTier } from "./types.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,24 +29,135 @@ interface Business {
   name: string;
   google_account_id: string | null;
   google_location_id: string | null;
+  google_place_id: string | null;
   autopilot_enabled: boolean;
   last_checked_at: string | null;
   timezone: string;
   summary_time: string;
+  service_tier: ServiceTier;
+  user_rating_count: number | null;
   personas: Persona | null;
 }
 
-// ── Poll cycle ────────────────────────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
-async function processReviewsForBusiness(business: Business): Promise<void> {
-  if (!business.personas) {
-    console.log(`[autopilot] Skipping ${business.name} — no persona configured`);
+function buildPersonaForGenerator(persona: Persona, businessId: string) {
+  return {
+    id: "autopilot",
+    businessId,
+    tone: persona.tone,
+    goodInstructions: persona.good_instructions,
+    mediumInstructions: persona.medium_instructions,
+    badInstructions: persona.bad_instructions,
+    language: persona.language,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// ── Places-based flow (manual / manager tiers) ──────────────────────────────
+
+async function processReviewsPlaces(business: Business): Promise<void> {
+  const persona = business.personas!;
+  const placeId = business.google_place_id;
+
+  if (!placeId) {
+    console.log(`[autopilot] Skipping ${business.name} — no google_place_id`);
     return;
   }
 
-  const persona = business.personas;
+  // Fetch known review IDs for dedup
+  const { data: existingLogs } = await supabase
+    .from("reply_logs")
+    .select("review_id")
+    .eq("business_id", business.id);
 
-  // Get access token — only needed for real GMB; mock skips this
+  const knownIds = new Set((existingLogs ?? []).map((l) => l.review_id));
+
+  let reviews;
+  try {
+    reviews = await fetchReviewsPlaces(placeId, knownIds);
+  } catch (err) {
+    console.error(`[autopilot] Failed to fetch Places reviews for ${business.name}:`, err);
+    return;
+  }
+
+  console.log(`[autopilot] ${business.name} (${business.service_tier}): ${reviews.length} new review(s)`);
+
+  const chatId = await getChatIdForUser(business.user_id);
+  const personaForGenerator = buildPersonaForGenerator(persona, business.id);
+
+  for (const review of reviews) {
+    const rating = starToInt(review.starRating);
+    const language = detectLanguage(review.comment, persona.language);
+
+    // Create log entry
+    const status = business.service_tier === "manual" ? "MANUAL" : "PENDING";
+    const { data: logEntry, error: insertErr } = await supabase
+      .from("reply_logs")
+      .insert({
+        business_id: business.id,
+        review_id: review.reviewId,
+        review_text: review.comment,
+        review_rating: rating,
+        review_language: language,
+        review_author: review.reviewer.displayName,
+        generated_reply: "",
+        status,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !logEntry) {
+      console.error(`[autopilot] Failed to create log entry for review ${review.reviewId}:`, insertErr);
+      continue;
+    }
+
+    let replyText: string;
+    try {
+      replyText = await generateReply(review, business.name, personaForGenerator, language);
+    } catch (err) {
+      await supabase
+        .from("reply_logs")
+        .update({ status: "FAILED", error: String(err) })
+        .eq("id", logEntry.id);
+      console.error(`[autopilot] Reply generation failed for review ${review.reviewId}:`, err);
+      continue;
+    }
+
+    await supabase
+      .from("reply_logs")
+      .update({ generated_reply: replyText })
+      .eq("id", logEntry.id);
+
+    // Notify based on tier
+    try {
+      if (business.service_tier === "manual" && chatId) {
+        await notifyClientManualTier(chatId, logEntry.id, review, replyText, business.name);
+      } else if (business.service_tier === "manager") {
+        await notifyOpsManagerTier(logEntry.id, review, replyText, business.name);
+        if (chatId) {
+          await notifyClientManagerTier(chatId, review, business.name);
+        }
+      }
+    } catch (err) {
+      console.error(`[autopilot] Notification failed for review ${review.reviewId}:`, err);
+    }
+  }
+
+  // Update last_checked_at
+  await supabase
+    .from("businesses")
+    .update({ last_checked_at: new Date().toISOString() })
+    .eq("id", business.id);
+}
+
+// ── GMB-based flow (automated tier) ─────────────────────────────────────────
+
+async function processReviewsGmb(business: Business): Promise<void> {
+  const persona = business.personas!;
+
+  // Get access token
   let accessToken: string | null = null;
   if (process.env.REPLY_SERVICE === "gmb") {
     const { data: tokenRow } = await supabase
@@ -58,7 +176,6 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
     }
   }
 
-  // Build a Business-like object for the review fetcher (uses snake_case GMB fields)
   const fetcherBusiness = {
     id: business.id,
     name: business.name,
@@ -75,7 +192,9 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
     return;
   }
 
-  console.log(`[autopilot] ${business.name}: ${reviews.length} new review(s)`);
+  console.log(`[autopilot] ${business.name} (automated): ${reviews.length} new review(s)`);
+
+  const personaForGenerator = buildPersonaForGenerator(persona, business.id);
 
   for (const review of reviews) {
     if (review.reviewReply) continue;
@@ -91,20 +210,6 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
     const rating = starToInt(review.starRating);
     const language = detectLanguage(review.comment, persona.language);
 
-    // Map persona to the shape generateReply expects (camelCase)
-    const personaForGenerator = {
-      id: "autopilot",
-      businessId: business.id,
-      tone: persona.tone,
-      goodInstructions: persona.good_instructions,
-      mediumInstructions: persona.medium_instructions,
-      badInstructions: persona.bad_instructions,
-      language: persona.language,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Create pending log entry
     const { data: logEntry, error: insertErr } = await supabase
       .from("reply_logs")
       .insert({
@@ -113,6 +218,7 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
         review_text: review.comment,
         review_rating: rating,
         review_language: language,
+        review_author: review.reviewer.displayName,
         generated_reply: "",
         status: "PENDING",
       })
@@ -136,7 +242,7 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
       continue;
     }
 
-    // Post with retry (exponential backoff: 2s, 4s, 8s)
+    // Post with retry
     let posted = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -168,12 +274,28 @@ async function processReviewsForBusiness(business: Business): Promise<void> {
     }
   }
 
-  // Update last_checked_at after all reviews are processed
   await supabase
     .from("businesses")
     .update({ last_checked_at: new Date().toISOString() })
     .eq("id", business.id);
 }
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+async function processReviewsForBusiness(business: Business): Promise<void> {
+  if (!business.personas) {
+    console.log(`[autopilot] Skipping ${business.name} — no persona configured`);
+    return;
+  }
+
+  if (business.service_tier === "manual" || business.service_tier === "manager") {
+    await processReviewsPlaces(business);
+  } else {
+    await processReviewsGmb(business);
+  }
+}
+
+// ── Token expired notification ────────────────────────────────────────────────
 
 async function notifyTokenExpired(business: Business): Promise<void> {
   const { data: link } = await supabase
@@ -192,6 +314,8 @@ async function notifyTokenExpired(business: Business): Promise<void> {
   );
 }
 
+// ── Poll cycle ────────────────────────────────────────────────────────────────
+
 export async function runPollCycle(): Promise<void> {
   const { data: businesses, error } = await supabase
     .from("businesses")
@@ -207,6 +331,12 @@ export async function runPollCycle(): Promise<void> {
 }
 
 // ── Daily summary ─────────────────────────────────────────────────────────────
+
+const TIER_LABELS: Record<ServiceTier, string> = {
+  manual: "Manual",
+  manager: "Manager",
+  automated: "Automático",
+};
 
 export async function sendDailySummary(business: Business): Promise<void> {
   if (!business.personas) return;
@@ -241,6 +371,7 @@ export async function sendDailySummary(business: Business): Promise<void> {
   }
 
   const posted = logs.filter((l) => l.status === "POSTED").length;
+  const manual = logs.filter((l) => l.status === "MANUAL").length;
   const failed = logs.filter((l) => l.status === "FAILED").length;
   const byRating: Record<number, number> = {};
   for (const log of logs) {
@@ -261,10 +392,19 @@ export async function sendDailySummary(business: Business): Promise<void> {
   const negativeLine = insights.negative ? `\n⚠️ *Queja recurrente:* ${insights.negative}` : "";
   const failedLine = failed > 0 ? `\n⚠️ ${failed} respuesta(s) fallida(s) — revisa /status` : "";
 
+  let actionLine: string;
+  if (business.service_tier === "manual") {
+    actionLine = `📝 Respuestas sugeridas: ${manual + posted}`;
+  } else if (business.service_tier === "manager") {
+    actionLine = `📝 Gestionadas por el equipo: ${posted}\n📋 Pendientes: ${manual}`;
+  } else {
+    actionLine = `📝 Respondidas automáticamente: ${posted}`;
+  }
+
   const msg =
-    `📊 *Resumen de ayer — ${business.name}*\n\n` +
+    `📊 *Resumen de ayer — ${business.name}* (${TIER_LABELS[business.service_tier]})\n\n` +
     `⭐ Nuevas reseñas: ${logs.length}\n  ${ratingLine}\n` +
-    `📝 Respondidas automáticamente: ${posted}${failedLine}\n\n` +
+    `${actionLine}${failedLine}\n\n` +
     `💡 *Lo que mencionan tus clientes:*\n${positiveLines}${negativeLine}`;
 
   await bot.api.sendMessage(chatId, msg, { parse_mode: "Markdown" });
