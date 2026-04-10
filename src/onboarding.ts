@@ -15,6 +15,7 @@ interface PersonaPartial {
   badInstructions?: string;
   language?: string;
   businessName?: string;
+  placeId?: string;
 }
 
 type OnboardingStep =
@@ -85,6 +86,26 @@ export async function startOnboarding(chatId: string, businessId: string): Promi
  * Pass userId if we have it from a token (to link the account).
  */
 export async function startFreshOnboarding(chatId: string, userId?: string): Promise<void> {
+  // If we have a userId, check if they already have a business (created via web)
+  if (userId) {
+    const { data: business } = await supabase
+      .from("businesses")
+      .select("id, name")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (business) {
+      // Link telegram to this user
+      await supabase.from("telegram_links").upsert(
+        { user_id: userId, telegram_user_id: Number(chatId) },
+        { onConflict: "user_id" }
+      );
+      // Skip business name step — go straight to persona setup
+      await startOnboarding(chatId, business.id);
+      return;
+    }
+  }
+
   onboardingState.set(chatId, {
     businessId: null,
     userId: userId ?? null,
@@ -248,6 +269,7 @@ export async function handleBusinessConfirmCallback(chatId: string, confirmed: b
 
   const place = state.placeCandidate!;
   state.partial.businessName = place.name;
+  state.partial.placeId = place.placeId;
   state.step = "ask_good";
   onboardingState.set(chatId, state);
 
@@ -400,7 +422,7 @@ async function activateAutopilot(
       .insert({
         user_id: resolvedUserId,
         name: partial.businessName,
-        google_place_id: "pending",
+        google_place_id: partial.placeId || "pending",
       })
       .select("id")
       .single();
