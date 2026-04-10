@@ -38,6 +38,33 @@ bot.use(async (ctx, next) => {
 
 // ── Commands ──────────────────────────────────────────────────────────────────
 
+// Helper: look up existing business for a Telegram chat
+async function findExistingBusiness(chatId: string | number) {
+  const { data: link } = await supabase
+    .from("telegram_links")
+    .select("user_id")
+    .eq("telegram_user_id", Number(chatId))
+    .single();
+
+  if (!link) return null;
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("id, name")
+    .eq("user_id", link.user_id)
+    .maybeSingle();
+
+  if (!business) return null;
+
+  const { data: persona } = await supabase
+    .from("personas")
+    .select("id")
+    .eq("business_id", business.id)
+    .maybeSingle();
+
+  return { userId: link.user_id, businessId: business.id, businessName: business.name, hasPersona: !!persona };
+}
+
 bot.command("start", async (ctx) => {
   const param = ctx.match?.trim();
 
@@ -55,7 +82,20 @@ bot.command("start", async (ctx) => {
     console.log(`[onboard] record=${JSON.stringify(record)} error=${JSON.stringify(tokenError)}`);
 
     if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
-      // Token invalid/expired — start fresh onboarding with userId from token if available
+      // Token invalid/expired — check if user already has a business
+      const existing = await findExistingBusiness(ctx.chat.id);
+      if (existing) {
+        if (existing.hasPersona) {
+          await ctx.reply(
+            `👋 ¡Hola de nuevo! Ya tienes configurado *${existing.businessName}*.\n\n` +
+              `Usa /status para ver tu actividad o /help para ver los comandos disponibles.`,
+            { parse_mode: "Markdown" }
+          );
+          return;
+        }
+        await startOnboarding(String(ctx.chat.id), existing.businessId);
+        return;
+      }
       await startFreshOnboarding(String(ctx.chat.id), record?.user_id);
       return;
     }
@@ -115,6 +155,22 @@ bot.command("start", async (ctx) => {
   // Legacy link deep link: /start LINK_XXXXXX
   if (param?.startsWith("LINK_")) {
     await handleLink(ctx, param.replace("LINK_", ""));
+    return;
+  }
+
+  // Check if this Telegram user already has a linked business
+  const existing = await findExistingBusiness(ctx.chat.id);
+  if (existing) {
+    if (existing.hasPersona) {
+      await ctx.reply(
+        `👋 ¡Hola de nuevo! Ya tienes configurado *${existing.businessName}*.\n\n` +
+          `Usa /status para ver tu actividad o /help para ver los comandos disponibles.`,
+        { parse_mode: "Markdown" }
+      );
+      return;
+    }
+    // Has business but no persona — continue onboarding from persona setup
+    await startOnboarding(String(ctx.chat.id), existing.businessId);
     return;
   }
 
