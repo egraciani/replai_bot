@@ -1,0 +1,84 @@
+name: Deploy Monorepo to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloud-run-main
+  cancel-in-progress: true
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  GCP_ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app_name: bot
+            service: ${{ vars.CLOUD_RUN_BOT_SERVICE }}
+            build_context: .
+            dockerfile: ./Dockerfile
+            image_name: replai-bot
+          - app_name: web
+            service: ${{ vars.CLOUD_RUN_WEB_SERVICE }}
+            build_context: ./web
+            dockerfile: ./web/Dockerfile
+            image_name: replai-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Validate deployment config
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GCP_PROJECT_ID}" || (echo "Missing repo variable GCP_PROJECT_ID" && exit 1)
+          test -n "${GCP_REGION}" || (echo "Missing repo variable GCP_REGION" && exit 1)
+          test -n "${GCP_ARTIFACT_REGISTRY_REPOSITORY}" || (echo "Missing repo variable GCP_ARTIFACT_REGISTRY_REPOSITORY" && exit 1)
+          test -n "${{ matrix.service }}" || (echo "Missing Cloud Run service name for ${{ matrix.app_name }}" && exit 1)
+
+      - name: Build image with Cloud Build
+        shell: bash
+        env:
+          IMAGE_URI: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}/${{ matrix.image_name }}:${{ github.sha }}
+        run: >
+          gcloud builds submit "${{ matrix.build_context }}"
+          --project "${GCP_PROJECT_ID}"
+          --region "${GCP_REGION}"
+          --tag "${IMAGE_URI}"
+          --file "${{ matrix.dockerfile }}"
+          --quiet
+
+      - name: Deploy to Cloud Run
+        shell: bash
+        env:
+          IMAGE_URI: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}/${{ matrix.image_name }}:${{ github.sha }}
+        run: >
+          gcloud run deploy "${{ matrix.service }}"
+          --image "${IMAGE_URI}"
+          --project "${GCP_PROJECT_ID}"
+          --region "${GCP_REGION}"
+          --quiet
