@@ -143,6 +143,37 @@ npm run dev
 - **Web**: Pendiente (Vercel o Cloud Run)
 - **DB**: Supabase hosted
 
+### GitHub Actions: redeploy del monorepo a Cloud Run en push a `main`
+
+Se ha anadido el workflow [`.github/workflows/deploy-cloud-run.yml`](.github/workflows/deploy-cloud-run.yml) para construir y desplegar automaticamente los dos servicios del monorepo:
+
+- `bot`: usa el `Dockerfile` de la raiz
+- `web`: usa `web/Dockerfile`
+
+Configura estas variables y secrets en GitHub antes de activarlo:
+
+- `GCP_PROJECT_ID`: ID del proyecto de Google Cloud
+- `GCP_REGION`: region de Cloud Run y Artifact Registry (por ejemplo `europe-west1`)
+- `GCP_ARTIFACT_REGISTRY_REPOSITORY`: nombre del repositorio de Artifact Registry donde se publicaran las imagenes
+- `CLOUD_RUN_BOT_SERVICE`: nombre del servicio de Cloud Run del bot
+- `CLOUD_RUN_WEB_SERVICE`: nombre del servicio de Cloud Run de la web
+- `GCP_WORKLOAD_IDENTITY_PROVIDER`: resource name del Workload Identity Provider
+- `GCP_SERVICE_ACCOUNT`: email de la service account usada por GitHub Actions
+
+Permisos minimos recomendados para la service account:
+
+- `Cloud Run Admin`
+- `Cloud Build Editor`
+- `Artifact Registry Writer`
+- `Service Account User`
+
+APIs que deben estar habilitadas en el proyecto:
+
+- Cloud Run Admin API
+- Cloud Build API
+- Artifact Registry API
+- IAM Credentials API
+
 ## Stack
 
 - **Bot**: [Grammy](https://grammy.dev) + TypeScript + [Anthropic Claude](https://docs.anthropic.com) + Google Places API
