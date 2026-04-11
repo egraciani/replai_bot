@@ -69,7 +69,6 @@ jobs:
           --project "${GCP_PROJECT_ID}"
           --region "${GCP_REGION}"
           --tag "${IMAGE_URI}"
-          --file "${{ matrix.dockerfile }}"
           --quiet
 
       - name: Deploy to Cloud Run
