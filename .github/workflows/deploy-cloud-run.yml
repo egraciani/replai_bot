@@ -51,6 +51,9 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
       - name: Validate deployment config
         shell: bash
         run: |
@@ -60,16 +63,16 @@ jobs:
           test -n "${GCP_ARTIFACT_REGISTRY_REPOSITORY}" || (echo "Missing repo variable GCP_ARTIFACT_REGISTRY_REPOSITORY" && exit 1)
           test -n "${{ matrix.service }}" || (echo "Missing Cloud Run service name for ${{ matrix.app_name }}" && exit 1)
 
-      - name: Build image with Cloud Build
+      - name: Build and push image
         shell: bash
         env:
           IMAGE_URI: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}/${{ matrix.image_name }}:${{ github.sha }}
-        run: >
-          gcloud builds submit "${{ matrix.build_context }}"
-          --project "${GCP_PROJECT_ID}"
-          --region "${GCP_REGION}"
-          --tag "${IMAGE_URI}"
-          --quiet
+        run: |
+          docker build \
+            --file "${{ matrix.dockerfile }}" \
+            --tag "${IMAGE_URI}" \
+            "${{ matrix.build_context }}"
+          docker push "${IMAGE_URI}"
 
       - name: Deploy to Cloud Run
         shell: bash
