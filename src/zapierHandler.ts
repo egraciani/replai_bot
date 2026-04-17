@@ -41,19 +41,23 @@ export async function handleZapierReview(
   console.log(`[zapier] Incoming review reviewId=${reviewId} starRating=${p.starRating} author=${author}`);
 
   // 2. Buscar negocio Wuolah con autopilot activo
-  const { data: business, error: bizError } = await supabase
+  const { data: business } = await supabase
     .from("businesses")
-    .select("*, personas(*)")
+    .select("*")
     .ilike("name", "%wuolah%")
     .eq("autopilot_enabled", true)
     .maybeSingle();
-
-  console.log("[zapier] business query result:", JSON.stringify(business), "error:", JSON.stringify(bizError));
 
   if (!business) {
     console.log("[zapier] No Wuolah business with autopilot enabled");
     return { ok: false, message: "no active business" };
   }
+
+  const { data: personaRow } = await supabase
+    .from("personas")
+    .select("*")
+    .eq("business_id", business.id)
+    .maybeSingle();
 
   // 3. Dedup — si ya está procesada, devolver la reply guardada (idempotente)
   const { data: existing } = await supabase
@@ -77,7 +81,6 @@ export async function handleZapierReview(
     reviewReply: null,
   };
 
-  const personaRow = Array.isArray(business.personas) ? business.personas[0] ?? null : null;
   const personaLanguage = personaRow?.language ?? "es";
   const language = detectLanguage(reviewText, personaLanguage);
 
