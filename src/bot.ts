@@ -24,6 +24,7 @@ import {
   handleToneCallback,
 } from "./onboarding.js";
 import { startAutopilot } from "./autopilot.js";
+import { handleZapierReview } from "./zapierHandler.js";
 import { registerTierCallbacks } from "./commands/tier-callbacks.js";
 
 // ── Logging middleware ─────────────────────────────────────────────────────────
@@ -364,6 +365,24 @@ if (process.env.K_SERVICE) {
     }
     if (req.method === "POST" && req.url === "/webhook") {
       await handleWebhook(req, res);
+      return;
+    }
+    if (req.method === "POST" && req.url === "/zapier/review") {
+      const zapSecret = (req.headers["x-zapier-secret"] as string) ?? "";
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", async () => {
+        try {
+          const parsed = JSON.parse(body);
+          const result = await handleZapierReview(parsed, zapSecret);
+          const status = result.ok ? 200 : 401;
+          res.writeHead(status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result));
+        } catch (e) {
+          console.error("[zapier] parse error:", e);
+          res.writeHead(400).end(JSON.stringify({ ok: false, message: "bad request" }));
+        }
+      });
       return;
     }
     res.writeHead(404).end();
