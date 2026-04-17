@@ -72,36 +72,27 @@ export async function findBusiness(query: string): Promise<PlaceResult | null> {
 }
 
 export async function getBusinessReviews(placeId: string): Promise<BusinessData> {
-  // Use legacy Places API to get reviews sorted by newest
-  const params = new URLSearchParams({
-    place_id: placeId,
-    fields: "name,formatted_address,rating,user_ratings_total,reviews,types",
-    reviews_sort: "newest",
-    language: "es",
-    key: API_KEY,
+  const res = await fetch(`${BASE}/${placeId}`, {
+    headers: {
+      ...headers,
+      "X-Goog-FieldMask":
+        "id,displayName,formattedAddress,rating,userRatingCount,reviews,types",
+    },
   });
 
-  const res = await fetch(
-    `https://maps.googleapis.com/maps/api/place/details/json?${params}`
-  );
-
-  const json = (await res.json()) as {
-    result: {
-      name: string;
-      formatted_address: string;
+  const data = (await res.json()) as {
+    displayName: { text: string };
+    formattedAddress: string;
+    rating: number;
+    userRatingCount: number;
+    types?: string[];
+    reviews?: Array<{
       rating: number;
-      user_ratings_total: number;
-      types?: string[];
-      reviews?: Array<{
-        author_name: string;
-        rating: number;
-        text: string;
-        relative_time_description: string;
-      }>;
-    };
+      relativePublishTimeDescription: string;
+      text?: { text: string };
+      authorAttribution: { displayName: string };
+    }>;
   };
-
-  const data = json.result;
 
   const typeMap: Record<string, string> = {
     restaurant: "restaurante",
@@ -124,20 +115,20 @@ export async function getBusinessReviews(placeId: string): Promise<BusinessData>
   const businessType = rawTypes.map((t) => typeMap[t]).find(Boolean) ?? "negocio";
 
   const reviews: GoogleReview[] = (data.reviews ?? [])
-    .filter((r) => r.text && r.text.trim().length > 10)
+    .filter((r) => r.text?.text && r.text.text.trim().length > 10)
     .slice(0, 5)
     .map((r) => ({
-      author_name: r.author_name,
+      author_name: r.authorAttribution.displayName,
       rating: r.rating,
-      text: r.text,
-      relative_time_description: r.relative_time_description,
+      text: r.text!.text,
+      relative_time_description: r.relativePublishTimeDescription,
     }));
 
   return {
-    name: data.name,
-    address: data.formatted_address,
+    name: data.displayName.text,
+    address: data.formattedAddress,
     rating: data.rating,
-    totalReviews: data.user_ratings_total,
+    totalReviews: data.userRatingCount,
     type: businessType,
     reviews,
   };
