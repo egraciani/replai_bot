@@ -111,11 +111,19 @@ export async function handleZapierReview(
     posted_at: new Date().toISOString(),
   });
 
-  // 7. Notificar a todos los chats de Telegram vinculados al negocio
+  // 7. Notificar a TODOS los usuarios que hayan hecho onboarding con Wuolah
+  //    (cada usuario que identifica Wuolah crea su propio business row)
+  const { data: wuolahBusinesses } = await supabase
+    .from("businesses")
+    .select("user_id")
+    .ilike("name", "%wuolah%");
+
+  const userIds = (wuolahBusinesses ?? []).map((b: { user_id: string }) => b.user_id);
+
   const { data: links } = await supabase
     .from("telegram_links")
     .select("telegram_user_id")
-    .eq("user_id", business.user_id);
+    .in("user_id", userIds);
 
   const stars = "⭐".repeat(rating);
   const msg =
