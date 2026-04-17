@@ -41,12 +41,14 @@ export async function handleZapierReview(
   console.log(`[zapier] Incoming review reviewId=${reviewId} starRating=${p.starRating} author=${author}`);
 
   // 2. Buscar negocio Wuolah con autopilot activo
-  const { data: business } = await supabase
+  const { data: business, error: bizError } = await supabase
     .from("businesses")
     .select("*, personas(*)")
     .ilike("name", "%wuolah%")
     .eq("autopilot_enabled", true)
     .maybeSingle();
+
+  console.log("[zapier] business query result:", JSON.stringify(business), "error:", JSON.stringify(bizError));
 
   if (!business) {
     console.log("[zapier] No Wuolah business with autopilot enabled");
