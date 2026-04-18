@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "autoreplai_bot";
@@ -67,8 +67,10 @@ export async function POST(request: Request) {
     businessId = newBiz.id;
   }
 
-  // Generate onboarding token + deep link
-  await supabase
+  // Generate onboarding token + deep link (use admin client to bypass RLS)
+  const admin = createAdminClient();
+
+  await admin
     .from("onboarding_tokens")
     .delete()
     .eq("user_id", user.id)
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-  await supabase.from("onboarding_tokens").insert({
+  const { error: tokenErr } = await admin.from("onboarding_tokens").insert({
     user_id: user.id,
     email: user.email ?? "",
     token,
@@ -86,6 +88,10 @@ export async function POST(request: Request) {
     business_name: name,
     expires_at: expiresAt,
   });
+
+  if (tokenErr) {
+    console.error("Token insert error:", tokenErr);
+  }
 
   const deepLink = `https://t.me/${BOT_USERNAME}?start=onboard_${token}`;
 

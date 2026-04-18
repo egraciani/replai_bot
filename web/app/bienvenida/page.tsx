@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import Image from "next/image";
+import Link from "next/link";
 import TierSelector from "./tier-selector";
 
 export default async function BienvenidoPage() {
@@ -38,7 +40,12 @@ export default async function BienvenidoPage() {
     "usuario";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6 py-10">
+    <div className="flex min-h-screen flex-col items-center bg-gray-50 px-6 py-10">
+      <div className="w-full max-w-2xl mb-8">
+        <Link href="/">
+          <Image src="/logo.png" alt="autoreplai" height={36} width={180} className="h-9 w-auto" />
+        </Link>
+      </div>
       <TierSelector userName={name} />
     </div>
   );

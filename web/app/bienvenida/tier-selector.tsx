@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type ServiceTier = "manual" | "manager" | "automated";
 
@@ -18,6 +19,7 @@ const TIERS: Array<{
   id: ServiceTier;
   label: string;
   price: string;
+  badge?: string;
   description: string;
   disabled: boolean;
 }> = [
@@ -26,23 +28,24 @@ const TIERS: Array<{
     label: "Manual",
     price: "Gratis",
     description:
-      "Detectamos nuevas reseñas y te enviamos una respuesta sugerida por Telegram. Tú la copias y pegas en Google Maps.",
+      "Te enviamos una respuesta sugerida por Telegram. Tú la copias y la publicas cuando quieras.",
     disabled: false,
   },
   {
     id: "manager",
     label: "Manager",
-    price: "$29/mes",
+    price: "9,99€/mes",
     description:
-      "Nuestro equipo publica las respuestas por ti en Google Maps. Solo tienes que añadirnos como administrador.",
+      "Nuestro equipo publica hasta 20 respuestas por ti al mes. Solo tienes que añadirnos como administrador.",
     disabled: false,
   },
   {
     id: "automated",
-    label: "Automático",
-    price: "Próximamente",
+    label: "Copiloto",
+    price: "",
+    badge: "Coming Soon",
     description:
-      "Respuestas publicadas automáticamente sin intervención. Requiere conexión directa con Google Business Profile API.",
+      "Respuestas publicadas automáticamente, sin que tengas que hacer nada.",
     disabled: true,
   },
 ];
@@ -122,6 +125,11 @@ export default function TierSelector({ userName }: { userName: string }) {
 
   return (
     <div className="w-full max-w-2xl">
+      <div className="flex justify-end mb-4">
+        <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 transition">
+          Salir
+        </Link>
+      </div>
       <div className="text-center mb-8">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <svg
@@ -147,34 +155,33 @@ export default function TierSelector({ userName }: { userName: string }) {
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center justify-center gap-2 mb-8">
+      <div className="flex items-center justify-center gap-1 mb-8 w-full overflow-hidden">
         {["Servicio", "Negocio", "Telegram"].map((label, i) => {
           const stepIndex = ["select_tier", "enter_url", "done"].indexOf(step);
-          const active = i <= (step === "confirm_business" ? 1 : stepIndex);
+          const currentStepIndex = step === "confirm_business" ? 1 : stepIndex;
+          const active = i <= currentStepIndex;
+          const canGoBack = i < currentStepIndex && step !== "done";
+          const backTargets: Record<number, Step> = { 0: "select_tier", 1: "enter_url" };
           return (
-            <div key={label} className="flex items-center gap-2">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                  active
-                    ? "bg-brand-600 text-white"
-                    : "bg-gray-200 text-gray-500"
-                }`}
+            <div key={label} className="flex items-center gap-1 min-w-0">
+              <button
+                disabled={!canGoBack}
+                onClick={() => canGoBack && setStep(backTargets[i])}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium transition ${
+                  active ? "bg-brand-600 text-white" : "bg-gray-200 text-gray-500"
+                } ${canGoBack ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
               >
                 {i + 1}
-              </div>
+              </button>
               <span
-                className={`text-sm ${
+                className={`text-xs truncate ${
                   active ? "text-gray-900 font-medium" : "text-gray-400"
                 }`}
               >
                 {label}
               </span>
               {i < 2 && (
-                <div
-                  className={`h-px w-8 ${
-                    active ? "bg-brand-600" : "bg-gray-200"
-                  }`}
-                />
+                <div className={`h-px w-4 shrink-0 sm:w-8 ${active ? "bg-brand-600" : "bg-gray-200"}`} />
               )}
             </div>
           );
@@ -208,17 +215,21 @@ export default function TierSelector({ userName }: { userName: string }) {
                     : "border-gray-200 bg-white hover:border-brand-500 hover:shadow-md"
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <span className="text-base font-semibold text-gray-900">
                     {tier.label}
                   </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      tier.disabled ? "text-gray-400" : "text-brand-600"
-                    }`}
-                  >
-                    {tier.price}
-                  </span>
+                  {tier.badge ? (
+                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-500 shrink-0">
+                      {tier.badge}
+                    </span>
+                  ) : tier.id === "manager" ? (
+                    <span className="text-sm font-bold text-brand-600 shrink-0">9,99€/mes</span>
+                  ) : (
+                    <span className="text-sm font-medium text-brand-600 shrink-0">
+                      {tier.price}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-2 text-sm text-gray-500">{tier.description}</p>
               </button>
@@ -242,7 +253,7 @@ export default function TierSelector({ userName }: { userName: string }) {
           <p className="mt-1 text-sm text-gray-500">
             Pega el enlace de Google Maps de tu negocio, o escribe su nombre.
           </p>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
               value={url}
@@ -254,7 +265,7 @@ export default function TierSelector({ userName }: { userName: string }) {
             <button
               onClick={handleValidate}
               disabled={validating || !url.trim()}
-              className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+              className="w-full rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50 sm:w-auto"
             >
               {validating ? "Buscando..." : "Buscar"}
             </button>

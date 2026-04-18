@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-const DEMO_LINK = "https://t.me/autoreplai_bot";
+const DEMO_LINK = "https://t.me/replai_hola_bot?start=demo";
 
 // Pricing page temporarily hidden — redirect to home
 export default function PreciosPage() {
