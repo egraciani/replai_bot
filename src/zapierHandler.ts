@@ -4,19 +4,29 @@ import { generateReply } from "./services/replyGenerator.js";
 import { detectLanguage } from "./services/languageDetector.js";
 import type { GmbReview } from "./services/reviewFetcher.js";
 
-const STAR_MAP: Record<string, GmbReview["starRating"]> = {
-  ONE: "ONE", TWO: "TWO", THREE: "THREE", FOUR: "FOUR", FIVE: "FIVE",
-};
+// Zapier puede enviar el rating como string "FIVE" o como número "5" / 5
+function parseStarRating(raw: unknown): { starRating: GmbReview["starRating"]; rating: number } {
+  const WORD_MAP: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
+  const INT_MAP: Record<number, GmbReview["starRating"]> = { 1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE" };
 
-const STAR_TO_INT: Record<string, number> = {
-  ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5,
-};
+  const n = Number(raw);
+  if (!isNaN(n) && INT_MAP[n]) {
+    return { starRating: INT_MAP[n], rating: n };
+  }
+  const str = String(raw).toUpperCase();
+  const num = WORD_MAP[str];
+  if (num) return { starRating: str as GmbReview["starRating"], rating: num };
+
+  return { starRating: "THREE", rating: 3 };
+}
 
 interface ZapierPayload {
   reviewId: string;
-  starRating: string;
+  starRating: string | number;
   comment?: string;
+  // Zapier puede enviar el nombre anidado o plano
   reviewer?: { displayName?: string };
+  reviewerDisplayName?: string;
   createTime?: string;
 }
 
@@ -33,10 +43,9 @@ export async function handleZapierReview(
 
   const p = body as ZapierPayload;
   const reviewId = p.reviewId;
-  const starRating = (STAR_MAP[p.starRating] ?? "THREE") as GmbReview["starRating"];
-  const rating = STAR_TO_INT[p.starRating] ?? 3;
+  const { starRating, rating } = parseStarRating(p.starRating);
   const reviewText = p.comment ?? "";
-  const author = p.reviewer?.displayName ?? "Cliente";
+  const author = p.reviewer?.displayName ?? p.reviewerDisplayName ?? "Cliente";
 
   console.log(`[zapier] Incoming review reviewId=${reviewId} starRating=${p.starRating} author=${author}`);
 
