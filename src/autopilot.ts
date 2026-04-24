@@ -413,7 +413,7 @@ export async function sendDailySummary(business: Business): Promise<void> {
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
 export function startAutopilot(): void {
-  cron.schedule("*/15 * * * *", async () => {
+  cron.schedule("* * * * *", async () => {
     console.log("[autopilot] Running poll cycle...");
     await runPollCycle();
   });
