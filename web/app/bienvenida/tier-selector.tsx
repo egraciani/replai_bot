@@ -25,7 +25,7 @@ const TIERS: Array<{
 }> = [
   {
     id: "manual",
-    label: "Manual",
+    label: "Demo",
     price: "Gratis",
     description:
       "Te enviamos una respuesta sugerida por Telegram. Tú la copias y la publicas cuando quieras.",
@@ -33,20 +33,11 @@ const TIERS: Array<{
   },
   {
     id: "manager",
-    label: "Manager",
+    label: "Automático",
     price: "9,99€/mes",
     description:
       "Nuestro equipo publica hasta 20 respuestas por ti al mes. Solo tienes que añadirnos como administrador.",
     disabled: false,
-  },
-  {
-    id: "automated",
-    label: "Copiloto",
-    price: "",
-    badge: "Coming Soon",
-    description:
-      "Respuestas publicadas automáticamente, sin que tengas que hacer nada.",
-    disabled: true,
   },
 ];
 
@@ -200,7 +191,7 @@ export default function TierSelector({ userName }: { userName: string }) {
           <h2 className="text-lg font-semibold text-gray-900 text-center">
             Elige tu tipo de servicio
           </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {TIERS.map((tier) => (
               <button
                 key={tier.id}
