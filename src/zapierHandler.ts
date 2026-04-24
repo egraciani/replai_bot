@@ -113,7 +113,7 @@ export async function handleZapierReview(
   const generatedReply = await generateReply(review, business.name, persona, language);
 
   // 6. Insertar en reply_logs — Zapier publicará en GMB en el siguiente step del Zap
-  await supabase.from("reply_logs").insert({
+  const { error: insertError } = await supabase.from("reply_logs").insert({
     business_id: business.id,
     review_id: reviewId,
     review_text: reviewText,
@@ -124,6 +124,7 @@ export async function handleZapierReview(
     status: "POSTED",
     posted_at: new Date().toISOString(),
   });
+  if (insertError) console.error("[zapier] reply_logs insert error:", JSON.stringify(insertError));
 
   // 7. Notificar a TODOS los usuarios que hayan hecho onboarding con Wuolah
   //    (cada usuario que identifica Wuolah crea su propio business row)
