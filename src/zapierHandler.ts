@@ -113,7 +113,9 @@ export async function handleZapierReview(
   const generatedReply = await generateReply(review, business.name, persona, language);
 
   // 6. Insertar en reply_logs — Zapier publicará en GMB en el siguiente step del Zap
+  const { randomUUID } = await import("crypto");
   const { error: insertError } = await supabase.from("reply_logs").insert({
+    id: randomUUID(),
     business_id: business.id,
     review_id: reviewId,
     review_text: reviewText,
